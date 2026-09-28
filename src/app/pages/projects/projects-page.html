@@ -1,0 +1,104 @@
+<app-portfolio-panel
+  buildingId="workshop"
+  intro="The workbench of the village — enterprise manufacturing products I help build at FPT IS."
+>
+  <ul class="stagger grid gap-5">
+    @for (p of data.projects; track p.id) {
+      <li>
+        <app-project-card [project]="p" [layout]="cardLayout()" (viewDetails)="open($event)" />
+      </li>
+    }
+  </ul>
+  <p class="mt-6 rounded-2xl bg-parchment-100 px-4 py-3 text-sm text-ink-500">
+    Earlier projects — Centralized Procurement, Loyalty Web Application (GSOFT) and Fast pass-health
+    (Nata Vietnam) — are listed in the Career Tower.
+  </p>
+</app-portfolio-panel>
+
+<app-portfolio-modal [open]="!!selected()" titleId="project-modal-title" (closed)="close()">
+  @if (selected(); as p) {
+    <div modal-title>
+      <p class="eyebrow">{{ p.company }}</p>
+      <h2 id="project-modal-title" class="font-display text-2xl font-bold text-ink-900 sm:text-3xl">
+        {{ p.fullName }}
+        @if (p.name !== p.fullName) {
+          <span class="text-wood-600">({{ p.name }})</span>
+        }
+      </h2>
+    </div>
+  }
+  @if (selected(); as p) {
+    <div class="space-y-7">
+      <app-project-thumbnail [project]="p" class="aspect-[16/7] overflow-hidden rounded-2xl" />
+      <section>
+        <h3 class="section-title !text-lg">Description</h3>
+        <p class="mt-2 leading-relaxed text-ink-700">{{ p.description }}</p>
+      </section>
+      <div class="grid gap-7 md:grid-cols-2">
+        <section>
+          <h3 class="section-title !text-lg">Key features</h3>
+          <ul class="mt-2 space-y-1.5">
+            @for (f of p.keyFeatures; track f) {
+              <li class="flex gap-2 text-ink-700">
+                <app-icon name="check" [size]="18" class="mt-0.5 text-leaf-600" /> {{ f }}
+              </li>
+            }
+          </ul>
+        </section>
+        <section>
+          <h3 class="section-title !text-lg">Responsibilities</h3>
+          <ul class="mt-2 list-disc space-y-1.5 pl-5 text-ink-700 marker:text-leaf-500">
+            @for (r of p.responsibilities; track r) {
+              <li>{{ r }}</li>
+            }
+          </ul>
+        </section>
+      </div>
+      <section>
+        <h3 class="section-title !text-lg">Technologies</h3>
+        <ul class="mt-3 flex flex-wrap gap-1.5">
+          @for (t of p.technologies; track t) {
+            <li><app-technology-badge [name]="t" /></li>
+          }
+        </ul>
+      </section>
+      @if (p.layers?.length) {
+        <section>
+          <h3 class="section-title !text-lg">
+            <app-icon name="layers" [size]="19" /> Technology layers
+          </h3>
+          <p class="mt-1 text-sm text-ink-500">
+            How the listed technologies group together across the stack.
+          </p>
+          <ol class="mt-3 space-y-2">
+            @for (layer of p.layers; track layer.label; let i = $index) {
+              <li
+                class="grid items-center gap-2 rounded-2xl border border-wood-400/25 px-4 py-3 sm:grid-cols-[10rem_1fr]"
+                [style.background]="
+                  'color-mix(in srgb, ' + p.theme.from + ' ' + (6 + i * 3) + '%, white)'
+                "
+              >
+                <span class="font-display text-sm font-bold text-ink-900">{{ layer.label }}</span>
+                <span class="flex flex-wrap gap-1.5">
+                  @for (t of layer.technologies; track t) {
+                    <app-technology-badge [name]="t" compact />
+                  }
+                </span>
+              </li>
+            }
+          </ol>
+        </section>
+      }
+      @if (p.screenshots?.length) {
+        <section>
+          <h3 class="section-title !text-lg">Screenshots</h3>
+          <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            @for (s of p.screenshots; track s) {
+              <img [src]="s" [alt]="p.fullName + ' screenshot'" class="rounded-xl" loading="lazy" />
+            }
+          </div>
+        </section>
+      }
+    </div>
+  }
+</app-portfolio-modal>

@@ -1,0 +1,416 @@
+<h1 class="sr-only">
+  {{ profile.name }} — {{ profile.role }}. Welcome to Giỏi's Developer Village.
+</h1>
+
+<!-- ================= Reusable sections ================= -->
+<ng-template #intro>
+  <p class="eyebrow">Welcome to the village</p>
+  <p class="mt-1.5 flex flex-wrap gap-1.5 landscape-phone:hidden">
+    <span class="chip !border-sun-400/60 !bg-sun-300/40">
+      <app-icon name="sparkles" [size]="14" /> {{ profile.experienceLabel }}
+    </span>
+  </p>
+  <p
+    class="mt-2.5 text-[0.92rem] leading-relaxed text-ink-700 landscape-phone:hidden max-sm:group-data-[expanded=false]/sheet:hidden"
+  >
+    {{ profile.intro }}
+  </p>
+  <div class="mt-3 flex flex-wrap gap-2">
+    <a routerLink="/experience" class="btn btn-primary btn-shine !min-h-10 !px-4 !text-sm">
+      <app-icon name="compass" [size]="17" /> Explore My Work
+    </a>
+    <a routerLink="/projects" class="btn btn-leaf !min-h-10 !px-4 !text-sm">View Projects</a>
+    <a routerLink="/contact" class="btn btn-ghost !min-h-10 !px-4 !text-sm">Contact Me</a>
+  </div>
+</ng-template>
+
+<ng-template #sectionTitle let-icon="icon" let-label="label" let-tone="tone" let-id="id">
+  <h2 [id]="id" class="section-title !text-lg">
+    <span
+      class="grid size-9 place-items-center rounded-full shadow-inner ring-2 ring-white"
+      [class]="tone"
+    >
+      <app-icon [name]="icon" [size]="17" />
+    </span>
+    {{ label }}
+  </h2>
+</ng-template>
+
+<ng-template #aboutSection let-showTitle="showTitle">
+  <section class="min-w-0" aria-labelledby="board-about">
+    @if (showTitle) {
+      <ng-container
+        *ngTemplateOutlet="
+          sectionTitle;
+          context: {
+            icon: 'user',
+            label: 'About Me',
+            tone: 'bg-leaf-500 text-white',
+            id: 'board-about',
+          }
+        "
+      />
+    } @else {
+      <h2 id="board-about" class="sr-only">About Me</h2>
+    }
+    <div class="mt-2"><ng-container [ngTemplateOutlet]="intro" /></div>
+  </section>
+</ng-template>
+
+<ng-template #experienceSection let-showTitle="showTitle">
+  <section class="min-w-0" aria-labelledby="board-exp">
+    @if (showTitle) {
+      <ng-container
+        *ngTemplateOutlet="
+          sectionTitle;
+          context: {
+            icon: 'briefcase',
+            label: 'Work Experience',
+            tone: 'bg-sun-400 text-ink-900',
+            id: 'board-exp',
+          }
+        "
+      />
+    } @else {
+      <h2 id="board-exp" class="sr-only">Work Experience</h2>
+    }
+    <ul class="stagger mt-3 space-y-2.5">
+      @for (exp of data.experiences; track exp.id) {
+        <li class="flex gap-2.5">
+          <span
+            class="mt-1.5 size-2.5 shrink-0 rounded-full"
+            [class]="exp.end ? 'bg-wood-400' : 'bg-leaf-500 ring-4 ring-leaf-400/25'"
+            aria-hidden="true"
+          ></span>
+          <span class="min-w-0 flex-1">
+            <span class="flex flex-wrap items-baseline justify-between gap-x-3">
+              <span class="text-[0.92rem] font-bold text-ink-900">{{ exp.company }}</span>
+              <span class="text-xs font-bold whitespace-nowrap text-wood-600">
+                {{ data.formatMonth(exp.start) }} – {{ data.formatMonth(exp.end) }}
+              </span>
+            </span>
+            <span class="block text-xs font-semibold text-ink-500">
+              {{ exp.role }} · {{ exp.projects.length }} project{{
+                exp.projects.length > 1 ? 's' : ''
+              }}
+            </span>
+          </span>
+        </li>
+      }
+    </ul>
+    <a
+      routerLink="/experience"
+      class="mt-3 inline-flex items-center gap-1 text-sm font-bold text-leaf-700 hover:underline"
+    >
+      View all experience <app-icon name="arrow-right" [size]="14" />
+    </a>
+  </section>
+</ng-template>
+
+<ng-template #projectsSection let-showTitle="showTitle">
+  <section class="min-w-0" aria-labelledby="board-projects">
+    @if (showTitle) {
+      <ng-container
+        *ngTemplateOutlet="
+          sectionTitle;
+          context: {
+            icon: 'hammer',
+            label: 'Featured Projects',
+            tone: 'bg-berry-500 text-white',
+            id: 'board-projects',
+          }
+        "
+      />
+    } @else {
+      <h2 id="board-projects" class="sr-only">Featured Projects</h2>
+    }
+    <ul class="stagger mt-2 space-y-1">
+      @for (p of data.projects; track p.id) {
+        <li>
+          <a
+            [routerLink]="['/projects']"
+            [queryParams]="{ project: p.id }"
+            class="group flex items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-white/80"
+          >
+            <span
+              class="grid size-10 shrink-0 place-items-center rounded-xl font-display text-[0.65rem] font-extrabold text-white shadow-inner"
+              [style.background]="'linear-gradient(135deg,' + p.theme.from + ',' + p.theme.to + ')'"
+              aria-hidden="true"
+            >
+              {{ p.name.length <= 5 ? p.name : 'DMP' }}
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate font-bold leading-tight text-ink-900">
+                {{ p.name }}
+              </span>
+              <span class="line-clamp-1 text-xs text-ink-500">{{
+                p.name === p.fullName ? p.summary : p.fullName
+              }}</span>
+            </span>
+            <app-icon
+              name="chevron-right"
+              [size]="16"
+              class="shrink-0 text-wood-500 transition group-hover:translate-x-1"
+            />
+          </a>
+        </li>
+      }
+    </ul>
+    <a
+      routerLink="/projects"
+      class="mt-2 inline-flex items-center gap-1 text-sm font-bold text-leaf-700 hover:underline"
+    >
+      View all projects <app-icon name="arrow-right" [size]="14" />
+    </a>
+  </section>
+</ng-template>
+
+<ng-template #skillsSection let-showTitle="showTitle">
+  <section class="min-w-0" aria-labelledby="board-skills">
+    @if (showTitle) {
+      <ng-container
+        *ngTemplateOutlet="
+          sectionTitle;
+          context: {
+            icon: 'sprout',
+            label: 'Technical Skills',
+            tone: 'bg-sky-400 text-white',
+            id: 'board-skills',
+          }
+        "
+      />
+    } @else {
+      <h2 id="board-skills" class="sr-only">Technical Skills</h2>
+    }
+    <ul class="stagger mt-3 flex flex-wrap gap-1.5">
+      @for (s of topSkills; track s) {
+        <li><app-technology-badge [name]="s" compact /></li>
+      }
+    </ul>
+    <a
+      routerLink="/skills"
+      class="mt-3 inline-flex items-center gap-1 text-sm font-bold text-leaf-700 hover:underline"
+    >
+      Visit the Skills Garden <app-icon name="arrow-right" [size]="14" />
+    </a>
+  </section>
+</ng-template>
+
+<ng-template #tabbedBoard>
+  <div
+    class="flex flex-wrap gap-1.5 border-b border-wood-400/25 pb-2.5"
+    role="tablist"
+    aria-label="Village board"
+    tabindex="-1"
+    (keydown)="onTabKey($event)"
+  >
+    @for (t of tabs; track t.id) {
+      <button
+        type="button"
+        role="tab"
+        [id]="'board-tab-' + t.id"
+        [attr.aria-selected]="tab() === t.id"
+        [attr.aria-controls]="'board-panel-' + t.id"
+        [attr.tabindex]="tab() === t.id ? 0 : -1"
+        class="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 font-display text-sm font-bold transition"
+        [class]="
+          tab() === t.id ? 'bg-ink-900 text-sun-300 shadow' : 'text-wood-700 hover:bg-white/70'
+        "
+        (click)="tab.set(t.id)"
+      >
+        <app-icon [name]="t.icon" [size]="15" /> {{ t.label }}
+      </button>
+    }
+  </div>
+  <div
+    class="animate-rise pt-3"
+    role="tabpanel"
+    [id]="'board-panel-' + tab()"
+    [attr.aria-labelledby]="'board-tab-' + tab()"
+  >
+    @switch (tab()) {
+      @case ('about') {
+        <ng-container *ngTemplateOutlet="aboutSection; context: { showTitle: false }" />
+      }
+      @case ('experience') {
+        <ng-container *ngTemplateOutlet="experienceSection; context: { showTitle: false }" />
+      }
+      @case ('projects') {
+        <ng-container *ngTemplateOutlet="projectsSection; context: { showTitle: false }" />
+      }
+      @case ('skills') {
+        <ng-container *ngTemplateOutlet="skillsSection; context: { showTitle: false }" />
+      }
+    }
+  </div>
+</ng-template>
+
+@if (classic()) {
+  <!-- ================= Classic (2D) home ================= -->
+  <div class="stagger mx-auto max-w-5xl space-y-6">
+    <section
+      class="parchment relative flex flex-col items-start gap-6 overflow-hidden p-6 sm:flex-row sm:items-center sm:p-8"
+      aria-label="Introduction"
+    >
+      <span class="leaf-corner -top-1 -right-1 rotate-90"></span>
+      <div class="shrink-0 rounded-full bg-sky-200 p-1.5 ring-4 ring-white">
+        <app-avatar-portrait [size]="112" />
+      </div>
+      <div>
+        <p class="font-display text-4xl font-extrabold text-ink-900 sm:text-5xl" aria-hidden="true">
+          {{ profile.name }}
+        </p>
+        <p class="mt-1 font-hand text-2xl text-wood-700" aria-hidden="true">{{ profile.role }}</p>
+        <p class="mt-1 font-hand text-xl text-ink-700">{{ profile.headline }}</p>
+        <div class="mt-4 max-w-2xl"><ng-container [ngTemplateOutlet]="intro" /></div>
+      </div>
+    </section>
+    <div class="parchment grid gap-8 p-6 sm:p-8 md:grid-cols-3">
+      <ng-container *ngTemplateOutlet="experienceSection; context: { showTitle: true }" />
+      <ng-container *ngTemplateOutlet="projectsSection; context: { showTitle: true }" />
+      <ng-container *ngTemplateOutlet="skillsSection; context: { showTitle: true }" />
+    </div>
+    <section class="parchment p-6 sm:p-8" aria-labelledby="directory-title">
+      <h2 id="directory-title" class="section-title">Village map</h2>
+      <ul class="stagger mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        @for (b of directory; track b.id) {
+          <li>
+            <a
+              [routerLink]="'/' + b.route"
+              class="lift flex h-full items-start gap-3 rounded-2xl border border-wood-400/30 bg-white/70 p-4 hover:bg-white"
+            >
+              <span
+                class="grid size-10 shrink-0 place-items-center rounded-xl bg-ink-900 text-sun-300"
+                ><app-icon [name]="b.icon" [size]="19"
+              /></span>
+              <span>
+                <span class="block font-display font-bold text-ink-900">{{ b.name }}</span>
+                <span class="block text-sm text-ink-500"
+                  >{{ b.section }} — {{ b.description }}</span
+                >
+              </span>
+            </a>
+          </li>
+        }
+      </ul>
+    </section>
+    <p class="text-center font-hand text-xl text-wood-700">“{{ profile.motto }}”</p>
+  </div>
+} @else if (compact()) {
+  <!-- ================= Compact 3D home: bottom sheet ================= -->
+  <section
+    appViewInset="bottom"
+    [attr.data-expanded]="sheetExpanded()"
+    class="group/sheet glass animate-rise fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 mx-auto max-w-xl overflow-hidden landscape-phone:bottom-[calc(3.5rem+env(safe-area-inset-bottom))] landscape-phone:max-w-md"
+    aria-label="Introduction"
+  >
+    <div
+      class="scroll-soft overflow-y-auto p-4 landscape-phone:p-3"
+      [class]="sheetExpanded() ? 'max-h-[58dvh]' : 'max-h-[46dvh]'"
+    >
+      <ng-container [ngTemplateOutlet]="intro" />
+      @if (sheetExpanded()) {
+        <div class="stagger mt-5 space-y-6 border-t border-wood-400/25 pt-4">
+          <ng-container *ngTemplateOutlet="experienceSection; context: { showTitle: true }" />
+          <ng-container *ngTemplateOutlet="projectsSection; context: { showTitle: true }" />
+          <ng-container *ngTemplateOutlet="skillsSection; context: { showTitle: true }" />
+        </div>
+      }
+    </div>
+    <button
+      type="button"
+      class="flex min-h-11 w-full items-center justify-center gap-1.5 border-t border-wood-400/25 text-sm font-bold text-wood-700 landscape-phone:hidden"
+      [attr.aria-expanded]="sheetExpanded()"
+      (click)="sheetExpanded.set(!sheetExpanded())"
+    >
+      {{ sheetExpanded() ? 'Show less' : 'Quick look at my work' }}
+      <app-icon
+        name="chevron-down"
+        [size]="16"
+        class="transition"
+        [class.rotate-180]="sheetExpanded()"
+      />
+    </button>
+  </section>
+} @else {
+  <!-- ================= Desktop 3D home ================= -->
+  @if (hintVisible()) {
+    <p
+      data-avoid
+      class="glass animate-rise pointer-events-none fixed top-4 left-[calc(50%+8rem)] z-10 hidden -translate-x-1/2 rounded-full px-4 py-2 text-xs font-bold whitespace-nowrap text-wood-700 xl:block"
+    >
+      Drag to move · Right-drag to rotate · Scroll to zoom · Click a building
+    </p>
+  }
+
+  <aside
+    data-avoid
+    class="parchment animate-rise fixed top-4 right-4 z-10 hidden w-72 overflow-hidden p-4 [animation-delay:200ms] xl:block short:w-64 short:p-3"
+    aria-labelledby="next-chapter"
+  >
+    <span class="leaf-corner -top-1 -right-1 rotate-90"></span>
+    <div class="flex gap-3">
+      <div
+        class="shrink-0 self-start rounded-full bg-sky-200/80 p-0.5 ring-2 ring-white short:hidden"
+      >
+        <app-avatar-portrait [size]="64" />
+      </div>
+      <div class="min-w-0">
+        <h2 id="next-chapter" class="font-display text-lg font-bold text-ink-900">
+          The Next Chapter
+        </h2>
+        <ul class="mt-1.5 space-y-1">
+          @for (g of goals; track g.id) {
+            <li class="flex items-center gap-2 text-sm font-semibold text-ink-800">
+              <app-icon name="flag" [size]="14" class="text-leaf-600" /> {{ g.title }}
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
+    <p class="mt-2 text-right font-hand text-base text-wood-600">Keep learning, keep growing.</p>
+  </aside>
+
+  @if (boardOpen()) {
+    <section
+      appViewInset="bottom"
+      class="parchment animate-rise fixed right-4 bottom-4 left-[18rem] z-10 max-h-[44vh] overflow-x-hidden overflow-y-auto px-5 pt-4 pb-3 short:max-h-[40vh] short:p-3"
+      aria-label="Village board"
+    >
+      <span class="leaf-corner -top-1 -left-1"></span>
+      @if (wide()) {
+        <div
+          class="grid grid-cols-[1.45fr_1fr_1fr_1fr] gap-7 divide-x divide-dashed divide-wood-400/30 [&>*:not(:first-child)]:pl-7"
+        >
+          <ng-container *ngTemplateOutlet="aboutSection; context: { showTitle: true }" />
+          <ng-container *ngTemplateOutlet="experienceSection; context: { showTitle: true }" />
+          <ng-container *ngTemplateOutlet="projectsSection; context: { showTitle: true }" />
+          <ng-container *ngTemplateOutlet="skillsSection; context: { showTitle: true }" />
+        </div>
+      } @else {
+        <ng-container [ngTemplateOutlet]="tabbedBoard" />
+      }
+      <button
+        type="button"
+        class="btn-icon absolute top-2 right-2 !size-9 text-wood-600 hover:bg-wood-400/15"
+        aria-label="Hide village board"
+        (click)="boardOpen.set(false)"
+      >
+        <app-icon name="chevron-down" [size]="18" />
+      </button>
+    </section>
+  } @else {
+    <div
+      class="animate-pop fixed bottom-5 left-[calc(50%+8rem)] z-10 flex -translate-x-1/2 flex-col items-center gap-3"
+    >
+      <p
+        class="glass hidden rounded-2xl px-4 py-2 text-center font-hand text-lg whitespace-nowrap text-ink-800 sm:block"
+      >
+        {{ profile.headline }}
+      </p>
+      <button type="button" class="btn btn-primary btn-shine" (click)="boardOpen.set(true)">
+        <app-icon name="layers" [size]="17" /> Show village board
+      </button>
+    </div>
+  }
+}

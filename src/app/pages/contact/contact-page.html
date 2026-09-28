@@ -1,0 +1,84 @@
+<app-portfolio-panel
+  buildingId="contact"
+  intro="Leave a message at the shrine by the waterfall — it will find its way to me."
+>
+  <div class="stagger space-y-8">
+    <section aria-labelledby="contact-direct">
+      <h2 id="contact-direct" class="section-title">Reach me directly</h2>
+      <ul class="mt-3 grid gap-3 sm:grid-cols-2">
+        <li
+          class="flex items-center gap-3 rounded-2xl border border-wood-400/30 bg-white/75 p-4 sm:col-span-2"
+        >
+          <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-ink-900 text-sun-300"
+            ><app-icon name="mail"
+          /></span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-xs font-bold text-ink-500 uppercase">Email</span>
+            <a
+              class="block font-display text-lg font-bold break-all text-ink-900 hover:text-leaf-700"
+              [href]="'mailto:' + profile.email"
+              >{{ profile.email }}</a
+            >
+          </span>
+          <button
+            type="button"
+            class="btn-icon shrink-0 text-wood-700 hover:bg-wood-400/15"
+            (click)="copyEmail()"
+            [attr.aria-label]="copied() ? 'Email copied' : 'Copy email address'"
+          >
+            <app-icon [name]="copied() ? 'check' : 'copy'" [size]="18" />
+          </button>
+        </li>
+        <li class="flex items-center gap-3 rounded-2xl border border-wood-400/30 bg-white/75 p-4">
+          <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-ink-900 text-sun-300"
+            ><app-icon name="phone"
+          /></span>
+          <span>
+            <span class="block text-xs font-bold text-ink-500 uppercase">Phone</span>
+            <a
+              class="font-display text-lg font-bold text-ink-900 hover:text-leaf-700"
+              [href]="'tel:' + profile.phoneHref"
+              >{{ profile.phone }}</a
+            >
+          </span>
+        </li>
+        <li class="flex items-center gap-3 rounded-2xl border border-wood-400/30 bg-white/75 p-4">
+          <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-ink-900 text-sun-300"
+            ><app-icon name="pin"
+          /></span>
+          <span>
+            <span class="block text-xs font-bold text-ink-500 uppercase">Location</span>
+            <span class="font-display text-lg font-bold text-ink-900">HCMC</span>
+          </span>
+        </li>
+      </ul>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <a class="btn btn-primary" [href]="'mailto:' + profile.email"
+          ><app-icon name="mail" [size]="17" /> Email me</a
+        >
+        @for (s of profile.socials; track s.label) {
+          @if (s.url) {
+            <a class="btn btn-ghost" [href]="s.url" target="_blank" rel="noopener noreferrer">
+              <app-icon [name]="s.icon" [size]="17" /> {{ s.label }}
+            </a>
+          } @else {
+            <span
+              class="btn btn-ghost cursor-default opacity-60"
+              [attr.aria-label]="s.label + ' profile coming soon'"
+            >
+              <app-icon [name]="s.icon" [size]="17" /> {{ s.label }} · soon
+            </span>
+          }
+        }
+      </div>
+      <p class="sr-only" role="status" aria-live="polite">
+        {{ copied() ? 'Email address copied to clipboard' : '' }}
+      </p>
+    </section>
+
+    <section aria-labelledby="contact-form-title">
+      <h2 id="contact-form-title" class="section-title">Send a message</h2>
+      <div class="mt-3"><app-contact-form /></div>
+    </section>
+  </div>
+</app-portfolio-panel>

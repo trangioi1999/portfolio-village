@@ -1,0 +1,365 @@
+@import 'tailwindcss';
+
+/* Height-aware variants: laptops with short screens and phones in landscape. */
+@custom-variant short (@media (max-height: 780px));
+@custom-variant tiny (@media (max-height: 640px));
+@custom-variant landscape-phone (@media (max-height: 500px) and (orientation: landscape));
+@custom-variant xs (@media (min-width: 400px));
+
+/* ------------------------------------------------------------------
+ * Giỏi's Developer Village — design tokens
+ * Warm parchment + carved wood + deep ink banners, leafy accents.
+ * ------------------------------------------------------------------ */
+@theme {
+  --font-display: 'Baloo 2', 'Nunito', ui-rounded, system-ui, sans-serif;
+  --font-sans: 'Nunito', ui-rounded, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-hand: 'Patrick Hand', 'Comic Sans MS', cursive;
+
+  --color-parchment-50: #fffaf0;
+  --color-parchment-100: #fbf1dc;
+  --color-parchment-200: #f3e2bf;
+  --color-parchment-300: #e7cd9c;
+  --color-wood-400: #b98552;
+  --color-wood-500: #9a6a3f;
+  --color-wood-600: #7d5230;
+  --color-wood-700: #5f3d22;
+  --color-wood-900: #3a2414;
+  --color-ink-900: #1c2640;
+  --color-ink-800: #26324f;
+  --color-ink-700: #34425f;
+  --color-ink-500: #5b6680;
+  --color-leaf-400: #7cbf5d;
+  --color-leaf-500: #5fa447;
+  --color-leaf-600: #4a8a36;
+  --color-leaf-700: #386b29;
+  --color-sun-300: #ffd98a;
+  --color-sun-400: #f7bf4f;
+  --color-sun-500: #e9a42b;
+  --color-berry-500: #d65a4a;
+  --color-sky-200: #cfeaf8;
+  --color-sky-400: #6fbfe6;
+
+  --shadow-soft: 0 10px 30px -12px rgb(58 36 20 / 0.35), 0 2px 6px -2px rgb(58 36 20 / 0.18);
+  --shadow-lift: 0 18px 40px -16px rgb(28 38 64 / 0.45);
+  --radius-card: 1.25rem;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    @apply bg-sky-200 font-sans text-ink-900 antialiased;
+    overflow: hidden;
+  }
+  html.classic-view body {
+    overflow: auto;
+    background: linear-gradient(180deg, #bfe3f5 0%, #f6ecd5 45%, #efe0bf 100%) fixed;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display leading-tight;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-sun-400);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+  ::selection {
+    background: var(--color-sun-300);
+  }
+}
+
+@layer components {
+  /* Parchment card — the main content surface. */
+  .parchment {
+    background:
+      radial-gradient(120% 90% at 0% 0%, rgb(255 255 255 / 0.55), transparent 55%),
+      linear-gradient(180deg, var(--color-parchment-50), var(--color-parchment-100));
+    border: 1px solid rgb(185 133 82 / 0.35);
+    box-shadow:
+      inset 0 0 0 4px rgb(255 250 240 / 0.6),
+      var(--shadow-soft);
+    border-radius: var(--radius-card);
+  }
+
+  /* Frosted glass — floating overlays on top of the 3D scene. */
+  .glass {
+    background: rgb(255 250 240 / 0.78);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid rgb(255 255 255 / 0.7);
+    box-shadow: var(--shadow-soft);
+    border-radius: var(--radius-card);
+  }
+
+  /* Carved wood — navigation signboard. */
+  .wood {
+    background:
+      repeating-linear-gradient(
+        92deg,
+        rgb(255 255 255 / 0.04) 0 2px,
+        transparent 2px 9px,
+        rgb(0 0 0 / 0.05) 9px 10px,
+        transparent 10px 17px
+      ),
+      linear-gradient(180deg, #a8764a, #85572f);
+    border: 2px solid #5f3d22;
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 0.18),
+      inset 0 -3px 0 rgb(0 0 0 / 0.15),
+      var(--shadow-soft);
+  }
+
+  /* Ink banner — building signboards floating in the world. */
+  .ink-banner {
+    background: linear-gradient(180deg, #2a3656, #1c2640);
+    border: 1.5px solid rgb(247 191 79 / 0.55);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 8px 18px -8px rgb(0 0 0 / 0.55);
+    color: #fff7e6;
+  }
+
+  .btn {
+    @apply relative inline-flex min-h-11 items-center justify-center gap-2 overflow-hidden rounded-full px-5 py-2.5 font-display text-[0.95rem] font-semibold whitespace-nowrap transition select-none;
+    transition-duration: 180ms;
+  }
+  .btn:active {
+    transform: translateY(1px) scale(0.97);
+  }
+  /* Light sweep across primary buttons on hover. */
+  .btn-shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      110deg,
+      transparent 30%,
+      rgb(255 255 255 / 0.55) 50%,
+      transparent 70%
+    );
+    transform: translateX(-120%);
+    transition: transform 700ms ease;
+  }
+  .btn-shine:hover::after {
+    transform: translateX(120%);
+  }
+  .btn-primary {
+    @apply text-ink-900;
+    background: linear-gradient(180deg, var(--color-sun-300), var(--color-sun-400));
+    box-shadow:
+      inset 0 -3px 0 rgb(0 0 0 / 0.1),
+      0 6px 14px -6px rgb(233 164 43 / 0.9);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+  }
+  .btn-leaf {
+    @apply text-white;
+    background: linear-gradient(180deg, var(--color-leaf-500), var(--color-leaf-600));
+    box-shadow:
+      inset 0 -3px 0 rgb(0 0 0 / 0.12),
+      0 6px 14px -6px rgb(74 138 54 / 0.9);
+  }
+  .btn-leaf:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+  }
+  .btn-ghost {
+    @apply border border-wood-400/50 bg-parchment-50/70 text-wood-700 hover:bg-parchment-50;
+  }
+  .btn-icon {
+    @apply inline-flex size-11 items-center justify-center rounded-full transition;
+  }
+  .btn-icon:active {
+    transform: scale(0.92);
+  }
+
+  /* Leafy corner ornament used on parchment boards (like the concept art). */
+  .leaf-corner {
+    position: absolute;
+    width: 2.6rem;
+    height: 2.6rem;
+    pointer-events: none;
+    background: no-repeat center / contain
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M6 42C8 22 22 8 42 6 40 26 26 40 6 42z' fill='%235fa447'/%3E%3Cpath d='M8 40 36 12' stroke='%23386b29' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M18 30l-4-8M24 24l-2-9M30 18l-1-7M18 30l8 2M24 24l9 1' stroke='%23386b29' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.15));
+  }
+
+  /* Staggered entrance for lists and panel sections. */
+  .stagger > * {
+    animation: rise-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .stagger > *:nth-child(2) {
+    animation-delay: 60ms;
+  }
+  .stagger > *:nth-child(3) {
+    animation-delay: 120ms;
+  }
+  .stagger > *:nth-child(4) {
+    animation-delay: 180ms;
+  }
+  .stagger > *:nth-child(5) {
+    animation-delay: 240ms;
+  }
+  .stagger > *:nth-child(6) {
+    animation-delay: 300ms;
+  }
+  .stagger > *:nth-child(7) {
+    animation-delay: 360ms;
+  }
+  .stagger > *:nth-child(8) {
+    animation-delay: 420ms;
+  }
+  .stagger > *:nth-child(n + 9) {
+    animation-delay: 480ms;
+  }
+
+  .lift {
+    transition:
+      transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 200ms;
+  }
+  .lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
+  .wiggle:hover > app-icon,
+  .wiggle:focus-visible > app-icon {
+    animation: wiggle 500ms ease;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-wood-400/30 bg-parchment-50 px-3 py-1 text-[0.8rem] font-semibold text-ink-700;
+  }
+
+  .eyebrow {
+    @apply font-display text-xs font-bold tracking-[0.14em] text-leaf-700 uppercase;
+  }
+
+  .section-title {
+    @apply flex items-center gap-2.5 font-display text-xl font-bold text-ink-900;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-bold text-ink-800;
+  }
+  .field-input {
+    @apply w-full rounded-xl border border-wood-400/40 bg-white/80 px-3.5 py-2.5 text-[0.95rem] text-ink-900 shadow-inner transition outline-none placeholder:text-ink-500/60;
+  }
+  .field-input:focus {
+    @apply border-leaf-500 ring-3 ring-leaf-400/30;
+  }
+  .field-input[aria-invalid='true'] {
+    @apply border-berry-500 ring-berry-500/20;
+  }
+  .field-error {
+    @apply mt-1.5 text-sm font-semibold text-berry-500;
+  }
+
+  .sr-only-focusable:not(:focus) {
+    @apply sr-only;
+  }
+
+  .scroll-soft {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(154 106 63 / 0.45) transparent;
+  }
+}
+
+@utility text-shadow-soft {
+  text-shadow:
+    0 1px 0 rgb(255 255 255 / 0.8),
+    0 2px 12px rgb(255 250 240 / 0.9);
+}
+
+/* Motion ------------------------------------------------------------ */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-12deg) scale(1.1);
+  }
+  60% {
+    transform: rotate(9deg) scale(1.1);
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6) translateY(10px);
+  }
+  70% {
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-pop {
+  animation: pop-in 520ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+.animate-rise {
+  animation: rise-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.animate-slide {
+  animation: slide-in-right 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.animate-float {
+  animation: float-soft 4s ease-in-out infinite;
+}
+
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not(.motion-full) .animate-float {
+    animation: none;
+  }
+}
