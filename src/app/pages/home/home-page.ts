@@ -29,7 +29,9 @@ export class HomePage {
   protected readonly sheetExpanded = signal(false);
   protected readonly hintVisible = signal(true);
   protected readonly tab = signal<BoardTab>('about');
-  protected readonly goals = this.data.learning.filter((l) => l.status === 'goal').slice(0, 3);
+  protected readonly goals = this.data.learning
+    .filter((l) => l.status === 'goal' && l.id !== 'toeic')
+    .slice(0, 3);
   protected readonly directory = this.data.buildings.filter((b) => b.id !== 'plaza');
   protected readonly topSkills = [
     'Angular',
