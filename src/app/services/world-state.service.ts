@@ -34,6 +34,15 @@ interface StoredPrefs {
 }
 
 const ENTERED_KEY = 'gioi-village:entered';
+const VISITED_KEY = 'gioi-village:visited';
+
+function readVisited(): ReadonlySet<BuildingId> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(VISITED_KEY) ?? '[]') as BuildingId[]);
+  } catch {
+    return new Set();
+  }
+}
 
 function readSession(key: string): boolean {
   try {
@@ -88,6 +97,8 @@ export class WorldStateService {
   readonly activeBuilding = signal<BuildingId>('plaza');
   readonly hoveredBuilding = signal<BuildingId | null>(null);
   readonly panelOpen = computed(() => this.activeBuilding() !== 'plaza');
+  /** Buildings this visitor has opened (remembered across visits for the explore tracker). */
+  readonly visited = signal<ReadonlySet<BuildingId>>(readVisited());
 
   readonly status = signal<WorldStatus>(this.webglSupported ? 'loading' : 'unsupported');
   readonly progress = signal(0);
@@ -139,7 +150,19 @@ export class WorldStateService {
   constructor() {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe(() => this.activeBuilding.set(this.buildingFromRoute()));
+      .subscribe(() => {
+        const id = this.buildingFromRoute();
+        this.activeBuilding.set(id);
+        if (id !== 'plaza' && !this.visited().has(id)) {
+          const next = new Set(this.visited()).add(id);
+          this.visited.set(next);
+          try {
+            localStorage.setItem(VISITED_KEY, JSON.stringify([...next]));
+          } catch {
+            /* storage unavailable — progress lasts for this page view only */
+          }
+        }
+      });
 
     effect(() => {
       const prefs: StoredPrefs = {

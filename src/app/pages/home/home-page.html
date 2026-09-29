@@ -339,37 +339,10 @@
       data-avoid
       class="glass animate-rise pointer-events-none fixed top-4 left-[calc(50%+8rem)] z-10 hidden -translate-x-1/2 rounded-full px-4 py-2 text-xs font-bold whitespace-nowrap text-wood-700 xl:block"
     >
-      Drag to move · Right-drag to rotate · Scroll to zoom · Click a building
+      Drag to move · Right-drag to rotate · Scroll to zoom · Click a building · Click the grass to
+      walk
     </p>
   }
-
-  <aside
-    data-avoid
-    class="parchment animate-rise fixed top-4 right-4 z-10 hidden w-72 overflow-hidden p-4 [animation-delay:200ms] xl:block short:w-64 short:p-3"
-    aria-labelledby="next-chapter"
-  >
-    <span class="leaf-corner -top-1 -right-1 rotate-90"></span>
-    <div class="flex gap-3">
-      <div
-        class="shrink-0 self-start rounded-full bg-sky-200/80 p-0.5 ring-2 ring-white short:hidden"
-      >
-        <app-avatar-portrait [size]="64" />
-      </div>
-      <div class="min-w-0">
-        <h2 id="next-chapter" class="font-display text-lg font-bold text-ink-900">
-          The Next Chapter
-        </h2>
-        <ul class="mt-1.5 space-y-1">
-          @for (g of goals; track g.id) {
-            <li class="flex items-center gap-2 text-sm font-semibold text-ink-800">
-              <app-icon name="flag" [size]="14" class="text-leaf-600" /> {{ g.title }}
-            </li>
-          }
-        </ul>
-      </div>
-    </div>
-    <p class="mt-2 text-right font-hand text-base text-wood-600">Keep learning, keep growing.</p>
-  </aside>
 
   @if (boardOpen()) {
     <section

@@ -11,6 +11,7 @@ import { BuildingId, IconName } from '../../models/building.model';
 import { AudioService } from '../../services/audio.service';
 import { PortfolioDataService } from '../../services/portfolio-data.service';
 import { WorldStateService } from '../../services/world-state.service';
+import { AvatarPortrait } from '../avatar-portrait/avatar-portrait';
 import { Icon } from '../icon/icon';
 import { SoundControls } from '../sound-controls/sound-controls';
 import { ViewInset } from '../view-inset.directive';
@@ -30,7 +31,7 @@ interface Tool {
 @Component({
   selector: 'app-navigation-menu',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RouterLinkActive, Icon, ViewInset, SoundControls],
+  imports: [RouterLink, RouterLinkActive, Icon, ViewInset, SoundControls, AvatarPortrait],
   host: {
     '(document:keydown.escape)': 'closePopovers()',
     '(document:pointerdown)': 'onDocumentPointer($event)',
@@ -42,53 +43,28 @@ interface Tool {
       class="pointer-events-none fixed top-5 bottom-5 left-5 z-20 hidden w-[15.5rem] flex-col gap-4 short:top-3 short:bottom-3 short:gap-3 lg:flex"
       aria-label="Site"
     >
-      <div class="animate-rise pointer-events-auto">
-        <a
-          routerLink="/"
-          class="group block rounded-2xl outline-offset-4"
-          aria-label="Trần Văn Giỏi — Frontend Developer, go to home"
-        >
-          <p
-            class="text-shadow-soft flex items-start gap-1.5 font-display text-[2.15rem] leading-none font-extrabold tracking-tight text-ink-900 short:text-[1.8rem]"
+      <a
+        routerLink="/"
+        class="glass animate-rise group pointer-events-auto flex w-fit items-center gap-2.5 !rounded-full py-1.5 pr-4 pl-1.5 transition hover:-translate-y-0.5"
+        aria-label="Trần Văn Giỏi — Frontend Developer, go to home"
+      >
+        <span class="shrink-0 rounded-full bg-sky-200/80 ring-2 ring-white">
+          <app-avatar-portrait [size]="38" />
+        </span>
+        <span class="min-w-0">
+          <span
+            class="flex items-center gap-1 font-display text-base leading-tight font-extrabold text-ink-900"
           >
             {{ profile.name }}
             <app-icon
               name="sprout"
-              [size]="20"
-              class="mt-0.5 text-leaf-600 transition group-hover:rotate-12"
+              [size]="13"
+              class="text-leaf-600 transition group-hover:rotate-12"
             />
-          </p>
-          <p
-            class="text-shadow-soft mt-1 font-hand text-[1.35rem] leading-tight text-wood-700 short:text-lg"
-          >
-            {{ profile.role }}
-          </p>
-        </a>
-        <p class="text-shadow-soft mt-2 font-hand text-lg leading-snug text-ink-800 tiny:hidden">
-          Build beautiful UI,<br />Create better experiences.
-        </p>
-        <ul
-          class="text-shadow-soft mt-3 space-y-1 text-[0.85rem] font-semibold text-ink-800 short:hidden"
-        >
-          <li>
-            <a
-              class="inline-flex items-center gap-2 hover:text-leaf-700"
-              [href]="'mailto:' + profile.email"
-            >
-              <app-icon name="mail" [size]="15" /> {{ profile.email }}
-            </a>
-          </li>
-          <li>
-            <a
-              class="inline-flex items-center gap-2 hover:text-leaf-700"
-              [href]="'tel:' + profile.phoneHref"
-            >
-              <app-icon name="phone" [size]="15" /> {{ profile.phone }}
-            </a>
-          </li>
-          <li class="inline-flex items-center gap-2"><app-icon name="pin" [size]="15" /> HCMC</li>
-        </ul>
-      </div>
+          </span>
+          <span class="block text-xs font-bold text-wood-700">{{ profile.role }}</span>
+        </span>
+      </a>
 
       <nav
         class="wood animate-rise pointer-events-auto w-44 rounded-2xl p-2 [animation-delay:120ms]"
@@ -110,10 +86,38 @@ interface Tool {
               >
                 <app-icon [name]="b.icon" [size]="18" />
                 {{ b.navLabel }}
+                @if (b.id !== 'plaza' && visited().has(b.id)) {
+                  <span
+                    class="ml-auto grid size-4 place-items-center rounded-full bg-leaf-500 text-white"
+                    title="Visited"
+                  >
+                    <app-icon name="check" [size]="10" />
+                    <span class="sr-only">(visited)</span>
+                  </span>
+                }
               </a>
             </li>
           }
         </ul>
+        <div class="mt-1.5 border-t border-white/15 px-3 pt-2 pb-1">
+          <p class="flex justify-between text-[0.7rem] font-bold text-parchment-100/90">
+            <span>Village explored</span>
+            <span>{{ visitedCount() }}/{{ places }}</span>
+          </p>
+          <div
+            class="mt-1 h-1.5 overflow-hidden rounded-full bg-black/20"
+            role="progressbar"
+            aria-label="Village explored"
+            aria-valuemin="0"
+            [attr.aria-valuemax]="places"
+            [attr.aria-valuenow]="visitedCount()"
+          >
+            <div
+              class="h-full rounded-full bg-sun-400 transition-[width] duration-700"
+              [style.width.%]="(visitedCount() / places) * 100"
+            ></div>
+          </div>
+        </div>
       </nav>
 
       <div class="pointer-events-auto relative mt-auto" data-popover>
@@ -264,6 +268,12 @@ export class NavigationMenu {
   protected readonly soundOn = this.state.soundEnabled;
   protected readonly classic = computed(() => this.state.viewMode() === 'classic');
   protected readonly panelOpen = this.state.panelOpen;
+  /** Explore progress: which sections this visitor has opened. */
+  protected readonly visited = this.state.visited;
+  protected readonly places = this.buildings.filter((b) => b.id !== 'plaza').length;
+  protected readonly visitedCount = computed(
+    () => this.buildings.filter((b) => b.id !== 'plaza' && this.visited().has(b.id)).length,
+  );
 
   protected readonly tools = computed<Tool[]>(() => {
     const world = !this.classic();
