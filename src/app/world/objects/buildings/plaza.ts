@@ -18,6 +18,7 @@ import { box, cyl, sphere } from '../../utils/geometry';
 import { PALETTE, glow, mat } from '../../utils/materials';
 import { signTexture } from '../../utils/textures';
 import { BuildContext, VillageObject } from '../../utils/types';
+import { gust } from '../../utils/wind';
 import { bench, lampPost, paperLantern, textSign } from '../props';
 import { waterMaterial } from '../water';
 
@@ -153,7 +154,11 @@ export function createPlaza(ctx: BuildContext): VillageObject {
       const still = ctx.reducedMotion();
       water.uniforms['uTime'].value += dt * (still ? 0.15 : 1);
       floating.position.y = 3.1 + (still ? 0 : Math.sin(t * 1.2) * 0.18);
-      hanging.forEach((l, i) => (l.rotation.z = still ? 0 : Math.sin(t * 1.4 + i) * 0.1));
+      const g = still ? 0 : gust(t);
+      hanging.forEach(
+        (l, i) =>
+          (l.rotation.z = still ? 0 : g * 0.1 + Math.sin(t * 1.7 + i * 1.1) * (0.03 + g * 0.08)),
+      );
       floating.rotation.z = still ? 0 : Math.sin(t * 0.8) * 0.03;
       for (const d of drops) {
         const k = still ? 0.35 : (t * 0.9 + d.userData['phase']) % 1;

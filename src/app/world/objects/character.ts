@@ -26,6 +26,7 @@ import { Point } from '../layout';
 import { outline, toon } from '../utils/materials';
 import { animeEyeTexture, mouthTexture } from '../utils/textures';
 import { BuildContext } from '../utils/types';
+import { approach } from '../utils/wind';
 
 const COLORS = {
   skin: '#fde3cc',
@@ -41,14 +42,22 @@ const COLORS = {
 };
 const LINE = 0.028;
 const HEAD_R = 0.95;
+const AVATAR_SCALE = 1.12;
+
+/** `target` shifted by whole turns so it is within half a turn of `from`. */
+function nearestAngle(from: number, target: number): number {
+  const turn = Math.PI * 2;
+  let delta = (target - from) % turn;
+  if (delta > Math.PI) delta -= turn;
+  if (delta < -Math.PI) delta += turn;
+  return from + delta;
+}
 
 /**
  * Original chibi developer avatar — ~2.5 heads tall, cel-shaded with ink outlines.
  * White robe-hoodie with navy trim, black belt with a gold buckle, satchel and a red tassel.
  * A GLB model can replace the procedural rig via {@link Avatar.useModel}.
  */
-const AVATAR_SCALE = 1.12;
-
 export class Avatar {
   readonly root = new Group();
   private readonly rig = new Group();
@@ -62,6 +71,10 @@ export class Avatar {
   private readonly hairTuft = new Group();
   private readonly eyes: Mesh[] = [];
   private walking = false;
+  private running = false;
+  /** 0 standing … 1 full stride; eases so steps blend in and out. */
+  private stride = 0;
+  private gait = 0;
   private waving = 0;
   private nextBlink = 2;
   private nextGlance = 3;
@@ -426,20 +439,46 @@ export class Avatar {
         else this.hop();
       },
     });
-    let from = { x: this.root.position.x, z: this.root.position.z };
+    // Long trips are a jog; short ones a stroll.
+    let total = 0;
+    let prev = { x: this.root.position.x, z: this.root.position.z };
     for (const p of points) {
-      const dist = Math.hypot(p.x - from.x, p.z - from.z);
-      if (dist < 0.05) continue;
-      const yaw = Math.atan2(p.x - from.x, p.z - from.z);
-      tl.to(this.root.rotation, { y: this.closestAngle(yaw), duration: 0.2, ease: 'sine.out' });
-      tl.to(this.root.position, { x: p.x, z: p.z, duration: dist / 6.5, ease: 'none' }, '<');
-      from = p;
+      total += Math.hypot(p.x - prev.x, p.z - prev.z);
+      prev = p;
     }
+    this.running = total > 14;
+    const speed = this.running ? 9.5 : 6;
+    let from = { x: this.root.position.x, z: this.root.position.z };
+    let heading = this.root.rotation.y;
+    const moves = points.filter((p, i) => {
+      const before = i === 0 ? from : points[i - 1];
+      return Math.hypot(p.x - before.x, p.z - before.z) >= 0.05;
+    });
+    moves.forEach((p, i) => {
+      const dist = Math.hypot(p.x - from.x, p.z - from.z);
+      heading = nearestAngle(heading, Math.atan2(p.x - from.x, p.z - from.z));
+      const last = i === moves.length - 1;
+      tl.to(this.root.rotation, { y: heading, duration: 0.25, ease: 'sine.out' });
+      tl.to(
+        this.root.position,
+        // Ease out into the final step so the avatar doesn't stop dead.
+        {
+          x: p.x,
+          z: p.z,
+          duration: (dist / speed) * (last ? 1.35 : 1),
+          ease: last ? 'sine.out' : 'none',
+        },
+        '<',
+      );
+      from = p;
+    });
     tl.to(this.root.rotation, {
-      y: this.closestAngle(finalYaw),
-      duration: 0.35,
+      y: nearestAngle(heading, finalYaw),
+      duration: 0.4,
       ease: 'sine.inOut',
     });
+    // Ease into the first steps.
+    gsap.fromTo(tl, { timeScale: 0.3 }, { timeScale: 1, duration: 0.45, ease: 'sine.out' });
     this.setWalking(true);
     this.tween = tl;
   }
@@ -524,19 +563,24 @@ export class Avatar {
     if (!this.rig.visible) return;
     const still = this.ctx.reducedMotion();
     const walk = this.walking && !still;
-    const swing = walk ? Math.sin(t * 11) * 0.7 : 0;
+    // Blend the stride in and out instead of snapping between standing and walking.
+    this.stride = approach(this.stride, walk ? 1 : 0, 9, dt);
+    const run = this.running ? 1 : 0;
+    this.gait += dt * (9.5 + run * 4.5) * Math.max(this.stride, 0.15);
+    const step = Math.sin(this.gait);
+    const swing = step * (0.65 + run * 0.25) * this.stride;
     this.leftLeg.rotation.x = swing;
     this.rightLeg.rotation.x = -swing;
-    this.leftArm.rotation.x = -swing * 0.8;
-    this.rightArm.rotation.x = swing * 0.8;
+    this.leftArm.rotation.x = -swing * (0.8 + run * 0.3);
+    this.rightArm.rotation.x = swing * (0.8 + run * 0.3);
     if (!gsap.isTweening(this.rig.position)) {
-      this.body.position.y = walk
-        ? Math.abs(Math.sin(t * 11)) * 0.09
-        : still
-          ? 0
-          : Math.sin(t * 2.2) * 0.03;
+      const breathe = still ? 0 : Math.sin(t * 2.2) * 0.03;
+      const bounce = Math.abs(step) * (0.08 + run * 0.06);
+      this.body.position.y = bounce * this.stride + breathe * (1 - this.stride);
+      // Lean into the walk (more when jogging).
+      this.rig.rotation.x = this.stride * (0.06 + run * 0.1);
     }
-    this.body.rotation.z = walk ? Math.sin(t * 11) * 0.04 : 0;
+    this.body.rotation.z = step * 0.045 * this.stride;
 
     // Idle: occasional glance around, gentle head tilt, bouncing ahoge and tassel.
     this.nextGlance -= dt;
@@ -551,10 +595,11 @@ export class Avatar {
 
     if (this.waving > 0) {
       this.waving -= dt;
-      this.rightArm.rotation.z = 2.7 + Math.sin(t * 14) * 0.35;
+      const raise = 2.7 + Math.sin(t * 14) * 0.35;
+      this.rightArm.rotation.z = approach(this.rightArm.rotation.z, raise, 14, dt);
       this.head.rotation.z = 0.15;
     } else {
-      this.rightArm.rotation.z = 0.28;
+      this.rightArm.rotation.z = approach(this.rightArm.rotation.z, 0.28, 8, dt);
     }
 
     this.nextBlink -= dt;
@@ -570,13 +615,5 @@ export class Avatar {
     gsap.killTweensOf(this.rig.position);
     gsap.killTweensOf(this.rig.scale);
     this.mixer?.stopAllAction();
-  }
-
-  private closestAngle(target: number): number {
-    const current = this.root.rotation.y;
-    let delta = (target - current) % (Math.PI * 2);
-    if (delta > Math.PI) delta -= Math.PI * 2;
-    if (delta < -Math.PI) delta += Math.PI * 2;
-    return current + delta;
   }
 }

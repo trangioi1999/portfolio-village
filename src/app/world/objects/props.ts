@@ -2,6 +2,7 @@ import { Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Texture } from
 import { Vec3, add, box, cone, cyl, geo, sphere } from '../utils/geometry';
 import { PALETTE, glow, mat } from '../utils/materials';
 import { BuildContext, Updater } from '../utils/types';
+import { gust } from '../utils/wind';
 
 /** Glowing window with a wooden frame, facing +z of the parent. */
 export function windowPane(parent: Object3D, w: number, h: number, at: Vec3, rotY = 0): void {
@@ -133,11 +134,20 @@ export function smoke(parent: Object3D, at: Vec3, ctx: BuildContext): Updater {
   }
   return (_dt, t) => {
     const still = ctx.reducedMotion();
+    const g = still ? 0.4 : gust(t);
     for (const p of puffs) {
-      const k = still ? p.userData['phase'] : (t * 0.22 + p.userData['phase']) % 1;
-      p.position.set(at[0] + Math.sin(k * 5) * 0.3 + k * 0.6, at[1] + k * 3.2, at[2]);
-      p.scale.setScalar(0.35 + k * 0.9);
-      (p.material as MeshBasicMaterial).opacity = 0.65 * (1 - k);
+      const phase = p.userData['phase'] as number;
+      const k = still ? phase : (t * 0.22 + phase) % 1;
+      // Gusts blow the plume sideways and flatten it; puffs curl and fade in instead of popping.
+      const drift = k * (0.3 + g * 1.6) + Math.sin(k * 5 + phase * 6) * 0.3;
+      p.position.set(
+        at[0] + drift,
+        at[1] + k * (3.4 - g * 1.2),
+        at[2] + Math.sin(k * 3 + phase) * 0.2,
+      );
+      p.scale.setScalar(0.35 + k * (0.8 + g * 0.4));
+      p.rotation.set(k * 1.5 + phase, k * 2, 0);
+      (p.material as MeshBasicMaterial).opacity = 0.65 * Math.min(1, k / 0.15) * (1 - k);
     }
   };
 }

@@ -2,6 +2,7 @@ import { Group } from 'three';
 import { box, cone, cyl, gableRoof, sphere } from '../../utils/geometry';
 import { PALETTE, glow, mat } from '../../utils/materials';
 import { BuildContext, VillageObject } from '../../utils/types';
+import { approach, gust } from '../../utils/wind';
 import {
   bed,
   bookshelf,
@@ -105,6 +106,8 @@ export function createAboutHouse(ctx: BuildContext): VillageObject {
   mill.add(blades);
   root.add(mill);
 
+  // The windmill has inertia: it spins up in a gust and coasts down when the air calms.
+  let spin = 0.9;
   return {
     root,
     reveal: createReveal(root, {
@@ -113,7 +116,9 @@ export function createAboutHouse(ctx: BuildContext): VillageObject {
     }),
     update: (dt, t) => {
       puff(dt, t);
-      if (!ctx.reducedMotion()) blades.rotation.z -= dt * 0.9;
+      if (ctx.reducedMotion()) return;
+      spin = approach(spin, 0.35 + gust(t) * 2.2, 0.6, dt);
+      blades.rotation.z -= dt * spin;
     },
   };
 }

@@ -18,6 +18,7 @@ import {
 import { BUILDING_MAP } from '../../data/buildings.data';
 import { isFreeGround, rimRadius } from '../layout';
 import { PALETTE, mat } from '../utils/materials';
+import { approach, gust } from '../utils/wind';
 import { BuildContext, VillageObject } from '../utils/types';
 
 interface Instance {
@@ -50,6 +51,9 @@ function instanced(
   return mesh;
 }
 
+/** Shared by every swaying material: `uGust` scales how far foliage bends (see utils/wind). */
+const gustUniform = { value: 0.5 };
+
 /** Make a material sway in the wind (per-instance phase, stronger towards the top). */
 function windy(
   material: MeshStandardMaterial,
@@ -58,8 +62,9 @@ function windy(
 ): MeshStandardMaterial {
   material.onBeforeCompile = (shader) => {
     shader.uniforms['uWind'] = time;
+    shader.uniforms['uGust'] = gustUniform;
     shader.vertexShader =
-      'uniform float uWind;\n' +
+      'uniform float uWind;\nuniform float uGust;\n' +
       shader.vertexShader.replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
@@ -68,8 +73,11 @@ function windy(
         #else
           vec3 ip = vec3(0.0);
         #endif
+        // A gust rolls across the island (phase follows x), with a lean plus flutter on top.
         float sway = sin(uWind * 1.6 + ip.x * 0.35 + ip.z * 0.27) + 0.35 * sin(uWind * 3.3 + ip.x * 0.8);
-        float k = ${strength.toFixed(3)} * (position.y + 0.5);
+        float lean = uGust * 0.6;
+        float k = ${strength.toFixed(3)} * (position.y + 0.5) * (0.5 + 0.7 * uGust);
+        sway += lean;
         transformed.x += sway * k;
         transformed.z += sway * k * 0.6;`,
       );
@@ -281,7 +289,12 @@ export function createNature(ctx: BuildContext): VillageObject {
   return {
     root,
     update: (dt, t) => {
-      if (!ctx.reducedMotion()) wind.value = t;
+      if (!ctx.reducedMotion()) {
+        const g = gust(t);
+        gustUniform.value = approach(gustUniform.value, g, 1.5, dt);
+        // Sway faster in a gust, slower when calm — accumulated so it never jumps.
+        wind.value += dt * (0.55 + g * 0.8);
+      }
       birds.update?.(dt, t);
     },
   };
@@ -327,10 +340,22 @@ function createBirds(ctx: BuildContext): VillageObject {
     update: (_dt, t) => {
       const still = ctx.reducedMotion();
       for (const b of flock) {
-        const a = (still ? 0 : t) * b.speed + b.phase;
-        b.obj.position.set(Math.cos(a) * b.r, b.h + Math.sin(a * 3) * 0.5, Math.sin(a) * b.r - 4);
+        const time = still ? 0 : t;
+        const a = time * b.speed + b.phase;
+        // Wobbly loop instead of a perfect circle, drifting up and down.
+        const r = b.r + Math.sin(a * 2.3 + b.phase) * 2.5;
+        const climb = Math.sin(a * 1.7 + b.phase * 2);
+        b.obj.position.set(Math.cos(a) * r, b.h + climb * 1.2, Math.sin(a) * r - 4);
         b.obj.rotation.y = -a;
-        const flap = still ? 0 : Math.sin(t * 9 + b.phase) * 0.6;
+        // Bank into the turn, tilt nose up while climbing.
+        b.obj.rotation.z = 0.35 + Math.sin(a * 2.3 + b.phase) * 0.15;
+        b.obj.rotation.x = -Math.cos(a * 1.7 + b.phase * 2) * 0.15;
+        // Flap in bursts (mostly while climbing), glide with wings slightly raised otherwise.
+        const effort = Math.max(0, Math.sin(time * 0.8 + b.phase * 3) + climb * 0.5);
+        const flapping = Math.min(1, effort * 1.5);
+        const flap = still
+          ? 0
+          : Math.sin(time * 11 + b.phase) * 0.7 * flapping + (1 - flapping) * 0.18;
         b.wings[0].rotation.z = flap;
         b.wings[1].rotation.z = -flap;
       }

@@ -32,7 +32,16 @@ import { Building, BuildingId } from '../models/building.model';
 import { AVATAR_MODEL } from '../data/portfolio.data';
 import { AudioService } from '../services/audio.service';
 import { WorldStateService } from '../services/world-state.service';
-import { PLAZA_RADIUS, POND, Point, STREAM_END, arrivalPoint } from './layout';
+import {
+  ISLAND_RADIUS,
+  PLAZA_RADIUS,
+  POND,
+  Point,
+  STREAM_END,
+  arrivalPoint,
+  detourPath,
+  walkablePoint,
+} from './layout';
 import { BUILDING_FACTORIES } from './objects/buildings';
 import { Avatar } from './objects/character';
 import { createNature } from './objects/nature';
@@ -234,7 +243,8 @@ export class VillageWorld {
   private readonly entrances = new Map<BuildingId, { outside: Point; inside: Point } | null>();
   private avatar: Avatar | null = null;
   private interiorLight: PointLight | null = null;
-  private avatarAt: BuildingId = 'plaza';
+  /** Building the avatar is at, or null while roaming after a click on the ground. */
+  private avatarAt: BuildingId | null = 'plaza';
   private disposed = false;
   private resizeObserver: ResizeObserver | null = null;
   private lastInsetsKey = '';
@@ -272,6 +282,11 @@ export class VillageWorld {
         this.cameraService.setOrbitMode(id !== 'plaza');
         this.placeAvatar(id);
         this.openOnly(id, instant, 2.8);
+        if (id === 'plaza' && !this.state.isCoarsePointer())
+          setTimeout(
+            () => this.state.say('avatar', "Click anywhere on the grass — I'll run there!", 4500),
+            3800,
+          );
       });
     });
 
@@ -396,6 +411,7 @@ export class VillageWorld {
         ...[...this.spirits.values()].map((s) => s.root),
       ]);
       this.interaction.onSelect = (owner) => this.select(owner);
+      this.interaction.onGround = (x, z) => this.roamTo(x, z);
 
       this.three.onTick((dt, t) => this.tick(dt, t));
       this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -570,9 +586,9 @@ export class VillageWorld {
     if (!this.avatar || id === this.avatarAt) return;
     const from = this.avatarAt;
     this.avatarAt = id;
-    const exit = this.entrance(from);
+    const exit = from ? this.entrance(from) : null;
     const entry = this.entrance(id);
-    const path = this.avatarPath(from, id);
+    const path = from ? this.avatarPath(from, id) : this.roamPath(id);
     // Step back out onto the doorstep first, and walk up to the door at the other end.
     if (exit) path.unshift(exit.outside);
     if (entry) path.push(entry.outside);
@@ -600,7 +616,7 @@ export class VillageWorld {
   /** Put the avatar at a building instantly (used after the intro flight). */
   private placeAvatar(id: BuildingId): void {
     if (!this.avatar || id === this.avatarAt) return;
-    const path = this.avatarPath(this.avatarAt, id);
+    const path = this.avatarPath(this.avatarAt ?? 'plaza', id);
     const end = path.at(-1)!;
     const def = BUILDING_MAP[id];
     this.avatarAt = id;
@@ -693,6 +709,29 @@ export class VillageWorld {
       Math.max(0, (b.open.k - 0.35) / 0.65) * (b.reveal!.lightIntensity ?? INTERIOR_LIGHT);
   }
 
+  /** Click on the ground: the avatar (stepping out of a building if needed) walks there. */
+  private roamTo(x: number, z: number): void {
+    const avatar = this.avatar;
+    if (!avatar || Math.hypot(x, z) > ISLAND_RADIUS + 4) return;
+    const target = walkablePoint({ x, z });
+    const exit = avatar.inside && this.avatarAt ? this.entrance(this.avatarAt) : null;
+    if (avatar.inside) avatar.setInside(false);
+    const start = exit?.outside ?? { x: avatar.root.position.x, z: avatar.root.position.z };
+    const path = [...(exit ? [exit.outside] : []), ...detourPath(start, target)];
+    const last = path.at(-2) ?? start;
+    const yaw = Math.atan2(target.x - last.x, target.z - last.z);
+    this.avatarAt = null;
+    avatar.walkTo(path, yaw);
+    this.burst?.emit(this.tmp.set(target.x, 0.3, target.z), '#fff1b8', 14);
+  }
+
+  /** From wherever the avatar roamed to, walk (around obstacles) to a building or home. */
+  private roamPath(to: BuildingId): Point[] {
+    const avatar = this.avatar!;
+    const start = { x: avatar.root.position.x, z: avatar.root.position.z };
+    return detourPath(start, to === 'plaza' ? AVATAR_HOME : arrivalPoint(to, 1.3));
+  }
+
   /** Walk around the fountain along the plaza ring, then out to the building. */
   private avatarPath(from: BuildingId, to: BuildingId): Point[] {
     const angleOf = (id: BuildingId) => {
@@ -752,7 +791,8 @@ export class VillageWorld {
         .applyAxisAngle(new Vector3(0, 1, 0), yaw)
         .add(this.avatar.root.position);
       // While the avatar is indoors, its companion waits on the doorstep.
-      const door = this.avatar.inside ? this.entrance(this.avatarAt)?.outside : null;
+      const door =
+        this.avatar.inside && this.avatarAt ? this.entrance(this.avatarAt)?.outside : null;
       if (door) follow.set(door.x, 0, door.z);
       for (const s of this.spirits.values()) {
         const followsAvatar = s.data.home === 'avatar';
@@ -835,7 +875,7 @@ export class VillageWorld {
     });
 
     // Keep building signboards from overlapping: nearer labels win, farther ones move up.
-    // HTML cards marked [data-avoid] (e.g. "The Next Chapter") push labels below them.
+    // HTML cards marked [data-avoid] (e.g. the controls hint) push labels below them.
     buildingLabels.sort((a, b) => a.z - b.z);
     const placed: { l: number; r: number; t: number; b: number }[] = [];
     if (--this.avoidTimer <= 0) {

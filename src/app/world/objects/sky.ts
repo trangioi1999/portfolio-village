@@ -17,6 +17,7 @@ import { PALETTE, mat } from '../utils/materials';
 import { Rng } from '../utils/random';
 import { streakTexture } from '../utils/textures';
 import { BuildContext, VillageObject } from '../utils/types';
+import { gust } from '../utils/wind';
 import { waterfallMaterial } from './water';
 
 export const FOG_COLOR = '#c8e6f5';
@@ -202,6 +203,8 @@ export function createSky(ctx: BuildContext): VillageObject {
     const dist = rng.range(55, 150);
     cloud.position.set(Math.cos(a) * dist, rng.range(18, 45), Math.sin(a) * dist);
     cloud.userData['speed'] = rng.range(0.6, 1.4);
+    cloud.userData['baseY'] = cloud.position.y;
+    cloud.userData['phase'] = rng.next() * Math.PI * 2;
     clouds.push(cloud);
     root.add(cloud);
   }
@@ -260,13 +263,24 @@ export function createSky(ctx: BuildContext): VillageObject {
     root,
     update: (dt, t) => {
       if (ctx.reducedMotion()) return;
+      const breeze = 0.45 + gust(t) * 0.9;
       for (const c of clouds) {
-        c.position.x += dt * c.userData['speed'];
+        const speed = c.userData['speed'] as number;
+        const phase = c.userData['phase'] as number;
+        c.position.x += dt * speed * breeze;
         if (c.position.x > 170) c.position.x = -170;
+        // Bob and slowly "breathe"; shrink away near the edges so the wrap-around is invisible.
+        c.position.y = (c.userData['baseY'] as number) + Math.sin(t * 0.13 + phase) * 1.6;
+        const edge = Math.min(1, (170 - Math.abs(c.position.x)) / 30);
+        const breath = 1 + Math.sin(t * 0.21 + phase * 1.7) * 0.06;
+        c.scale.set(breath * edge, (2 - breath) * edge, breath * edge);
       }
       for (const island of islands) {
-        island.position.y =
-          island.userData['baseY'] + Math.sin(t * 0.5 + island.userData['phase']) * 0.8;
+        const phase = island.userData['phase'] as number;
+        island.position.y = island.userData['baseY'] + Math.sin(t * 0.5 + phase) * 0.8;
+        // A gentle rock, slightly out of step with the bob.
+        island.rotation.z = Math.sin(t * 0.37 + phase) * 0.03;
+        island.rotation.x = Math.sin(t * 0.29 + phase * 1.3) * 0.025;
       }
       for (const s of fallShaders) s.uniforms['uTime'].value += dt;
     },

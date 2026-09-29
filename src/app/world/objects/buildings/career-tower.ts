@@ -2,6 +2,7 @@ import { Group, Object3D } from 'three';
 import { box, cone, cyl, pagodaRoof, sphere } from '../../utils/geometry';
 import { PALETTE, glow, mat } from '../../utils/materials';
 import { BuildContext, VillageObject } from '../../utils/types';
+import { approach, gust } from '../../utils/wind';
 import { bookshelf, kit, plant, trophy, wallBoard, workstation } from '../furniture';
 import { door, lampPost, paperLantern, textSign, windowPane } from '../props';
 import { createReveal, hingedDoor, hollowRoom, revealPart } from '../reveal';
@@ -123,6 +124,7 @@ export function createCareerTower(ctx: BuildContext): VillageObject {
   lampPost(root, [-3.6, 0.8, 5.2]);
   lampPost(root, [3.6, 0.8, 5.2]);
 
+  let flutter = 0;
   return {
     root,
     reveal: createReveal(root, {
@@ -130,10 +132,20 @@ export function createCareerTower(ctx: BuildContext): VillageObject {
       entrance: { outside: [0, 6.8], inside: [0, 4.6] },
       view: { polar: 1.02, distance: 0.95, height: 7.5 },
     }),
-    update: (_dt, t) => {
+    update: (dt, t) => {
       if (ctx.reducedMotion()) return;
-      flag.rotation.y = Math.sin(t * 2.2) * 0.35;
-      lanterns.forEach((l, i) => (l.rotation.z = Math.sin(t * 1.5 + i) * 0.08));
+      const g = gust(t);
+      // The flag streams out and snaps faster in a gust, droops and idles when calm.
+      flutter += dt * (2 + g * 5);
+      flag.rotation.y =
+        0.25 * g + Math.sin(flutter) * (0.12 + g * 0.3) + Math.sin(flutter * 2.7) * 0.06;
+      flag.rotation.z = -0.35 * (1 - g);
+      // Lanterns swing like pendulums pushed by the wind, each slightly out of step.
+      lanterns.forEach((l, i) => {
+        const push = g * 0.12 + Math.sin(t * 1.9 + i * 1.3) * (0.03 + g * 0.07);
+        l.rotation.z = approach(l.rotation.z, push, 3, dt);
+        l.rotation.x = Math.sin(t * 1.3 + i) * 0.03 * g;
+      });
       orb.position.y = top + 1.9 + Math.sin(t * 1.6) * 0.1;
     },
   };

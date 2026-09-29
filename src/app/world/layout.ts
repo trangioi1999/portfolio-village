@@ -93,6 +93,84 @@ export function isFreeGround(x: number, z: number, margin = 0): boolean {
   return distanceToPaths(x, z) > 1.7 + margin * 0.5;
 }
 
+/* ---------- Free walking (click-to-move) ---------- */
+
+interface Circle {
+  x: number;
+  z: number;
+  r: number;
+}
+
+/** Things the avatar walks around: buildings, the pond, the fountain and the farm. */
+const OBSTACLES: Circle[] = [
+  ...BUILDINGS.filter((b) => b.id !== 'plaza').map((b) => ({
+    x: b.position[0],
+    z: b.position[1],
+    r: b.footprint + 0.6,
+  })),
+  { x: POND.x, z: POND.z, r: POND.r + 0.8 },
+  { x: 0, z: -3.4, r: 2.9 },
+  { x: FARM.x, z: FARM.z, r: Math.hypot(FARM.w, FARM.d) / 2 + 0.4 },
+];
+
+/** Nearest spot the avatar can stand on: outside obstacles and away from the island edge. */
+export function walkablePoint(p: Point): Point {
+  let { x, z } = p;
+  for (let pass = 0; pass < 3; pass++) {
+    for (const o of OBSTACLES) {
+      const d = Math.hypot(x - o.x, z - o.z);
+      if (d >= o.r) continue;
+      const k = (o.r + 0.05) / (d || 1);
+      x = o.x + (d ? (x - o.x) * k : o.r + 0.05);
+      z = o.z + (d ? (z - o.z) * k : 0);
+    }
+    const r = Math.hypot(x, z);
+    const max = rimRadius(Math.atan2(z, x)) - 1.8;
+    if (r > max) {
+      x *= max / r;
+      z *= max / r;
+    }
+  }
+  return { x, z };
+}
+
+/** Straight-line path from `from` to `to`, bent around any obstacle in the way. */
+export function detourPath(from: Point, to: Point): Point[] {
+  const points = [from, to];
+  for (let pass = 0; pass < 6; pass++) {
+    let inserted = false;
+    for (let i = 0; i < points.length - 1 && !inserted; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const len2 = dx * dx + dz * dz || 1;
+      for (const o of OBSTACLES) {
+        const t = ((o.x - a.x) * dx + (o.z - a.z) * dz) / len2;
+        if (t <= 0.02 || t >= 0.98) continue;
+        const cx = a.x + t * dx;
+        const cz = a.z + t * dz;
+        const d = Math.hypot(cx - o.x, cz - o.z);
+        if (d >= o.r) continue;
+        // Step around the obstacle on the side the line already leans towards.
+        let nx = cx - o.x;
+        let nz = cz - o.z;
+        if (d < 0.01) [nx, nz] = [-dz, dx];
+        const n = Math.hypot(nx, nz) || 1;
+        const via = walkablePoint({
+          x: o.x + (nx / n) * (o.r + 0.8),
+          z: o.z + (nz / n) * (o.r + 0.8),
+        });
+        points.splice(i + 1, 0, via);
+        inserted = true;
+        break;
+      }
+    }
+    if (!inserted) break;
+  }
+  return points.slice(1);
+}
+
 /** Where the stream leaving the pond reaches the island edge (top of the waterfall). */
 export const STREAM_END: Point = (() => {
   for (let d = POND.r; d < 20; d += 0.1) {

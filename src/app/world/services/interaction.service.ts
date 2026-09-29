@@ -1,7 +1,8 @@
 import { Injectable, signal } from '@angular/core';
-import { Camera, Object3D, Raycaster, Vector2 } from 'three';
+import { Camera, Object3D, Plane, Raycaster, Vector2, Vector3 } from 'three';
 
-const CLICK_TOLERANCE_PX = 6;
+const CLICK_TOLERANCE_PX = 9;
+const GROUND = new Plane(new Vector3(0, 1, 0), 0);
 
 /**
  * Pointer interaction with the 3D scene: hover detection (raycast once per frame at most)
@@ -13,8 +14,11 @@ export class InteractionService {
   /** Owner id under the pointer, e.g. `building:career`, `avatar`, `spirit:bit`. */
   readonly hovered = signal<string | null>(null);
   onSelect: (owner: string) => void = () => undefined;
+  /** Click/tap on empty ground (world x/z). */
+  onGround: (x: number, z: number) => void = () => undefined;
 
   private readonly raycaster = new Raycaster();
+  private readonly hit = new Vector3();
   private readonly ndc = new Vector2();
   private dom!: HTMLElement;
   private camera!: Camera;
@@ -73,10 +77,16 @@ export class InteractionService {
     this.down = null;
     if (!d || e.button > 0) return;
     const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y);
-    if (moved > CLICK_TOLERANCE_PX || performance.now() - d.time > 600) return;
+    if (moved > CLICK_TOLERANCE_PX || performance.now() - d.time > 900) return;
     this.setNdc(e);
     const owner = this.pick();
-    if (owner) this.onSelect(owner);
+    if (owner) {
+      this.onSelect(owner);
+      return;
+    }
+    // Nothing clickable under the pointer: report where the ray meets the (flat) ground.
+    const ground = this.raycaster.ray.intersectPlane(GROUND, this.hit);
+    if (ground) this.onGround(ground.x, ground.z);
   }
 
   private pick(): string | null {
