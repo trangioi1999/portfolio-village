@@ -5,6 +5,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VIEW_AZIMUTH } from '../../data/buildings.data';
 import { Building } from '../../models/building.model';
 import { ViewInsets } from '../../services/world-state.service';
+import { InteriorView } from '../utils/types';
 
 const OVERVIEW_TARGET = new Vector3(0, 3, -6.5);
 const POLAR = 0.98; // ~56° from vertical → slightly elevated isometric feel
@@ -47,6 +48,32 @@ export class CameraService {
     this.overview(true);
   }
 
+  /**
+   * Building view: drag orbits all the way around the focused building (no panning away).
+   * Village view: drag pans, orbit limited to the front of the island.
+   */
+  setOrbitMode(free: boolean): void {
+    const c = this.controls;
+    c.minAzimuthAngle = free ? -Infinity : VIEW_AZIMUTH - 1.05;
+    c.maxAzimuthAngle = free ? Infinity : VIEW_AZIMUTH + 1.05;
+    c.maxPolarAngle = free ? 1.3 : 1.2;
+    c.minDistance = free ? 10 : 14;
+    c.enablePan = !free;
+    c.mouseButtons = free
+      ? { LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }
+      : { LEFT: MOUSE.PAN, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE };
+    c.touches = free
+      ? { ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_ROTATE }
+      : { ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_ROTATE };
+    if (!free) this.setAutoRotate(false);
+  }
+
+  /** Slowly circle the focused building. */
+  setAutoRotate(on: boolean): void {
+    this.controls.autoRotate = on;
+    this.controls.autoRotateSpeed = 1.6;
+  }
+
   resize(width: number, height: number): void {
     this.width = width;
     this.height = height;
@@ -84,10 +111,18 @@ export class CameraService {
     this.flyTo(new Vector3(0, 0, -6), 190, VIEW_AZIMUTH - 0.9, true, 0, 0.35);
   }
 
-  focus(building: Building, instant = false, duration = 1.5): void {
+  /** Fly to a building; with `inside`, use the framing that looks into its opened rooms. */
+  focus(building: Building, instant = false, duration = 1.5, inside?: InteriorView): void {
     const [x, z] = building.position;
+    const azimuth = VIEW_AZIMUTH + x * 0.004;
+    if (inside) {
+      const target = new Vector3(x, inside.height, z);
+      const distance = building.focusDistance * inside.distance;
+      this.flyTo(target, distance, azimuth, instant, duration, inside.polar);
+      return;
+    }
     const target = new Vector3(x, building.labelHeight * 0.32, z);
-    this.flyTo(target, building.focusDistance, VIEW_AZIMUTH + x * 0.004, instant, duration);
+    this.flyTo(target, building.focusDistance, azimuth, instant, duration);
   }
 
   private flyTo(

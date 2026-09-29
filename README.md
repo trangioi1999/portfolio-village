@@ -90,3 +90,5 @@ Blender), put it in `public/models/avatar.glb` and set `AVATAR_MODEL = 'models/a
   "available on request" instead of inventing content.
 - TOEIC 700 and Frontend Leader are listed as **goals**, not achievements.
 - Tech logos: [Devicon](https://devicon.dev) (MIT), self-hosted in `public/icons/tech`.
+- Interior furniture: [Kenney Furniture Kit](https://kenney.nl/assets/furniture-kit) (CC0),
+  self-hosted in `public/models/furniture`.

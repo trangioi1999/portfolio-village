@@ -15,20 +15,28 @@ export function windowPane(parent: Object3D, w: number, h: number, at: Vec3, rot
   parent.add(g);
 }
 
+/** Framed door; returns the leaf, pivoted on its left hinge so it can swing open. */
 export function door(
   parent: Object3D,
   w: number,
   h: number,
   at: Vec3,
   color: string = PALETTE.woodDark,
-): void {
-  box(parent, mat(PALETTE.woodDeep), [w + 0.2, h + 0.1, 0.1], at);
-  box(parent, mat(color), [w, h, 0.14], [at[0], at[1], at[2] + 0.02]);
-  sphere(parent, mat(PALETTE.gold, { metalness: 0.4, roughness: 0.4 }), 0.06, [
-    at[0] + w * 0.32,
-    at[1] + h * 0.5,
-    at[2] + 0.12,
+): Group {
+  const frame = mat(PALETTE.woodDeep);
+  box(parent, frame, [0.1, h + 0.1, 0.1], [at[0] - w / 2 - 0.05, at[1], at[2]]);
+  box(parent, frame, [0.1, h + 0.1, 0.1], [at[0] + w / 2 + 0.05, at[1], at[2]]);
+  box(parent, frame, [w + 0.2, 0.1, 0.1], [at[0], at[1] + h, at[2]]);
+  const leaf = new Group();
+  leaf.position.set(at[0] - w / 2, at[1], at[2] + 0.02);
+  box(leaf, mat(color), [w, h, 0.14], [w / 2, 0, 0]);
+  sphere(leaf, mat(PALETTE.gold, { metalness: 0.4, roughness: 0.4 }), 0.06, [
+    w * 0.82,
+    h * 0.5,
+    0.1,
   ]);
+  parent.add(leaf);
+  return leaf;
 }
 
 /** Wooden lamp post with a warm lantern. */

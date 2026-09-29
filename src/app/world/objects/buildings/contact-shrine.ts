@@ -3,9 +3,11 @@ import { box, cyl, pagodaRoof, sphere } from '../../utils/geometry';
 import { PALETTE, glow, mat } from '../../utils/materials';
 import { glowTexture } from '../../utils/textures';
 import { BuildContext, VillageObject } from '../../utils/types';
+import { altar, wallFrame } from '../furniture';
 import { stoneLantern } from '../props';
+import { createReveal, hingedDoor, hollowRoom, revealPart } from '../reveal';
 
-/** Small shrine with a red gate, stone lanterns, a post box and a floating letter. */
+/** Small shrine with a red gate, stone lanterns, a post box, a floating letter and an altar inside. */
 export function createContactShrine(ctx: BuildContext): VillageObject {
   const root = new Group();
   const red = mat(PALETTE.shrineRed);
@@ -29,13 +31,32 @@ export function createContactShrine(ctx: BuildContext): VillageObject {
   box(gate, mat(PALETTE.gold), [0.5, 0.5, 0.08], [0, 2.95, 0.2]);
   root.add(gate);
 
-  // Shrine hall.
-  box(root, wood, [3.2, 2.2, 2.6], [0, 0.5, -1.4]);
+  // Shrine hall with glowing shoji doors that swing open.
   box(root, red, [3.4, 0.2, 2.8], [0, 0.5, -1.4]);
+  hollowRoom(root, root, wood, mat('#d8b27a'), [3.2, 2.2, 2.6], [0, 0.5, -1.4], {
+    x: 0,
+    w: 2,
+    h: 2.1,
+  });
   for (const x of [-1.6, 1.6])
     for (const z of [-2.7, -0.1]) cyl(root, red, 0.12, 2.2, [x, 0.5, z], 8);
-  pagodaRoof(root, mat('#3f5a4f', { flat: true }), 3.2, 2.6, 1.6, 2.7, 0.9, mat(PALETTE.gold));
-  box(root, glow('#ffcf7a', 0.5), [1.2, 1.2, 0.05], [0, 1, -0.08]);
+  const roof = revealPart(root, 'roof');
+  pagodaRoof(roof, mat('#3f5a4f', { flat: true }), 3.2, 2.6, 1.6, 2.7, 0.9, mat(PALETTE.gold));
+  const shoji = glow('#ffcf7a', 0.5);
+  for (const side of [-1, 1] as const) {
+    const leaf = new Group();
+    leaf.position.set(side, 0.7, -0.14);
+    box(leaf, shoji, [0.98, 1.88, 0.05], [-side * 0.49, 0, 0]);
+    box(leaf, mat(PALETTE.woodDeep), [0.06, 1.88, 0.08], [-side * 0.02, 0, 0]);
+    box(leaf, mat(PALETTE.woodDeep), [0.98, 0.06, 0.08], [-side * 0.49, 0.94, 0]);
+    root.add(hingedDoor(leaf, side === -1 ? 1 : -1));
+  }
+
+  // Inside: the altar where messages arrive.
+  const room = revealPart(root, 'interior');
+  altar(room, [0, 0.74, -2.2]);
+  wallFrame(room, [-1.05, 1.5, -2.5], 0.5, 0.7, '#f4f1e8');
+  wallFrame(room, [1.05, 1.5, -2.5], 0.5, 0.7, '#f4f1e8');
   // Rope with a bell.
   box(root, mat('#e9d7a6'), [2.4, 0.1, 0.1], [0, 2.5, 0.1]);
   sphere(root, mat(PALETTE.gold, { metalness: 0.6, roughness: 0.3 }), 0.2, [0, 2.25, 0.15]);
@@ -86,6 +107,11 @@ export function createContactShrine(ctx: BuildContext): VillageObject {
 
   return {
     root,
+    reveal: createReveal(root, {
+      light: [0, 1.8, 0.4],
+      lightIntensity: 3,
+      entrance: { outside: [0, 5], inside: [0, 1.6] },
+    }),
     update: (_dt, t) => {
       if (ctx.reducedMotion()) return;
       letter.position.y = 2.7 + Math.sin(t * 1.8) * 0.2;

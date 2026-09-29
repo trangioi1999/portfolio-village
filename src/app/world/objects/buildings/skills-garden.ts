@@ -1,4 +1,11 @@
-import { AdditiveBlending, Group, OctahedronGeometry, Sprite, SpriteMaterial } from 'three';
+import {
+  AdditiveBlending,
+  Group,
+  MeshStandardMaterial,
+  OctahedronGeometry,
+  Sprite,
+  SpriteMaterial,
+} from 'three';
 import { SKILL_GROUPS } from '../../../data/skills.data';
 import { add, box, cyl, sphere } from '../../utils/geometry';
 import { PALETTE, mat } from '../../utils/materials';
@@ -41,7 +48,16 @@ export function createSkillsGarden(ctx: BuildContext): VillageObject {
   // Crystals.
   const glowTex = glowTexture();
   const crystalGeo = new OctahedronGeometry(0.5, 0);
-  const crystals: { obj: Group; phase: number; baseY: number }[] = [];
+  const crystals: {
+    obj: Group;
+    phase: number;
+    baseY: number;
+    material: MeshStandardMaterial;
+    halo: Sprite;
+    haloSize: number;
+  }[] = [];
+  // Raised by the reveal: crystals float higher and shine brighter while the garden is open.
+  let lift = 0;
   const makeCrystal = (color: string, x: number, z: number, s: number) => {
     const pedestal = new Group();
     pedestal.position.set(x, 0, z);
@@ -72,7 +88,7 @@ export function createSkillsGarden(ctx: BuildContext): VillageObject {
     c.add(halo);
     c.userData['dynamic'] = true;
     root.add(c);
-    crystals.push({ obj: c, phase: x + z, baseY: 1.6 * s });
+    crystals.push({ obj: c, phase: x + z, baseY: 1.6 * s, material: m, halo, haloSize: 2.6 * s });
   };
   SKILL_GROUPS.forEach((group, i) => {
     const a = (i / SKILL_GROUPS.length) * Math.PI * 2 + Math.PI / 8;
@@ -117,11 +133,23 @@ export function createSkillsGarden(ctx: BuildContext): VillageObject {
 
   return {
     root,
+    reveal: {
+      init: () => undefined,
+      set: (k) => {
+        lift = k;
+        for (const c of crystals) {
+          c.material.emissiveIntensity = 0.75 + k * 1.4;
+          c.halo.material.opacity = 0.55 + k * 0.35;
+          c.halo.scale.setScalar(c.haloSize * (1 + k * 0.5));
+          if (ctx.reducedMotion()) c.obj.position.y = c.baseY + lift * 0.9;
+        }
+      },
+    },
     update: (dt, t) => {
       if (ctx.reducedMotion()) return;
       for (const c of crystals) {
-        c.obj.rotation.y += dt * 0.5;
-        c.obj.position.y = c.baseY + Math.sin(t * 1.5 + c.phase) * 0.12;
+        c.obj.rotation.y += dt * (0.5 + lift * 1.2);
+        c.obj.position.y = c.baseY + lift * 0.9 + Math.sin(t * 1.5 + c.phase) * 0.12;
       }
     },
   };

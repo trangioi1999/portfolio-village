@@ -47,6 +47,8 @@ const HEAD_R = 0.95;
  * White robe-hoodie with navy trim, black belt with a gold buckle, satchel and a red tassel.
  * A GLB model can replace the procedural rig via {@link Avatar.useModel}.
  */
+const AVATAR_SCALE = 1.12;
+
 export class Avatar {
   readonly root = new Group();
   private readonly rig = new Group();
@@ -75,7 +77,7 @@ export class Avatar {
     this.root.userData['owner'] = 'avatar';
     this.root.add(this.rig);
     this.build();
-    this.root.scale.setScalar(1.12);
+    this.root.scale.setScalar(AVATAR_SCALE);
   }
 
   /* ------------------------------------------------------------------ */
@@ -406,20 +408,22 @@ export class Avatar {
     }
   }
 
-  /** Walk along waypoints, then face the given yaw (radians). */
-  walkTo(points: Point[], finalYaw: number): void {
+  /** Walk along waypoints, then face the given yaw (radians); `onArrive` runs at the end. */
+  walkTo(points: Point[], finalYaw: number, onArrive?: () => void): void {
     this.tween?.kill();
     const target = points.at(-1)!;
     if (this.ctx.reducedMotion() || !points.length) {
       this.root.position.set(target.x, 0, target.z);
       this.root.rotation.y = finalYaw;
       this.setWalking(false);
+      onArrive?.();
       return;
     }
     const tl = gsap.timeline({
       onComplete: () => {
         this.setWalking(false);
-        this.hop();
+        if (onArrive) onArrive();
+        else this.hop();
       },
     });
     let from = { x: this.root.position.x, z: this.root.position.z };
@@ -438,6 +442,48 @@ export class Avatar {
     });
     this.setWalking(true);
     this.tween = tl;
+  }
+
+  /** Is the avatar inside a building (hidden)? */
+  get inside(): boolean {
+    return !this.root.visible || this.root.scale.x < AVATAR_SCALE * 0.99;
+  }
+
+  /**
+   * Step through a doorway: walk on to `to` while shrinking away (inside), or pop back out
+   * at the current spot.
+   */
+  setInside(inside: boolean, to?: Point, instant = false): void {
+    gsap.killTweensOf(this.root.scale);
+    gsap.killTweensOf(this.root.position);
+    const scale = inside ? 0.001 : AVATAR_SCALE;
+    if (instant || this.ctx.reducedMotion()) {
+      if (to) this.root.position.set(to.x, 0, to.z);
+      this.root.scale.setScalar(scale);
+      this.root.visible = !inside;
+      return;
+    }
+    this.root.visible = true;
+    if (to) {
+      this.setWalking(true);
+      gsap.to(this.root.position, {
+        x: to.x,
+        z: to.z,
+        duration: 0.55,
+        ease: 'none',
+        onComplete: () => this.setWalking(false),
+      });
+    }
+    gsap.to(this.root.scale, {
+      x: scale,
+      y: scale,
+      z: scale,
+      duration: inside ? 0.55 : 0.4,
+      ease: inside ? 'power2.in' : 'back.out(1.8)',
+      onComplete: () => {
+        if (inside) this.root.visible = false;
+      },
+    });
   }
 
   /** Friendly wave + hop when clicked. */
@@ -519,6 +565,8 @@ export class Avatar {
 
   dispose(): void {
     this.tween?.kill();
+    gsap.killTweensOf(this.root.scale);
+    gsap.killTweensOf(this.root.position);
     gsap.killTweensOf(this.rig.position);
     gsap.killTweensOf(this.rig.scale);
     this.mixer?.stopAllAction();

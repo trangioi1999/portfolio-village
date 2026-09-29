@@ -12,6 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import gsap from 'gsap';
 import {
   Color,
   DoubleSide,
@@ -20,6 +21,7 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
   Object3D,
+  PointLight,
   RingGeometry,
   Vector3,
 } from 'three';
@@ -35,6 +37,8 @@ import { BUILDING_FACTORIES } from './objects/buildings';
 import { Avatar } from './objects/character';
 import { createNature } from './objects/nature';
 import { SparkleBurst, createAmbientParticles } from './objects/particles';
+import { KitSlot, prepareKitModel } from './objects/furniture';
+import { inInterior } from './objects/reveal';
 import { createSky } from './objects/sky';
 import { SpiritCompanion } from './objects/spirit-companion';
 import { createTerrain } from './objects/terrain';
@@ -46,7 +50,7 @@ import { disposeGeometryCache, disposeObject, mergeStatic } from './utils/geomet
 import { clearMaterialCache } from './utils/materials';
 import { createRng } from './utils/random';
 import { glowTexture } from './utils/textures';
-import { BuildContext, Updater } from './utils/types';
+import { BuildContext, InteriorView, RevealHandle, Updater } from './utils/types';
 
 interface BuildingRuntime {
   def: Building;
@@ -54,11 +58,16 @@ interface BuildingRuntime {
   materials: MeshStandardMaterial[];
   ring: Mesh<RingGeometry, MeshBasicMaterial>;
   level: number;
+  reveal?: RevealHandle;
+  /** How far the building is opened up (0 closed … 1 interior visible). */
+  open: { k: number };
+  openTween?: gsap.core.Tween;
 }
 
 const HIGHLIGHT = new Color('#ffb45c');
 const AVATAR_HOME: Point = { x: 0, z: 1.4 };
 const RING_RADIUS = 5.2;
+const INTERIOR_LIGHT = 12;
 /** Yield so Angular can render progress and the browser can paint between build steps. */
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 
@@ -159,6 +168,31 @@ const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => set
         </div>
       }
     </div>
+    @if (orbitHint()) {
+      <div
+        class="pointer-events-none absolute inset-x-0 flex justify-center"
+        [style.bottom.px]="state.viewInsets().bottom + 20"
+        [style.padding-left.px]="state.viewInsets().left"
+        [style.padding-right.px]="state.viewInsets().right"
+      >
+        <div
+          class="glass animate-rise pointer-events-auto flex items-center gap-2 rounded-full py-1.5 pr-1.5 pl-3 text-xs font-semibold text-ink-900"
+        >
+          <app-icon name="compass" [size]="14" />
+          <span>Drag to look around 360°</span>
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-full px-2.5 py-1 transition"
+            [class]="autoRotate() ? 'bg-sun-400' : 'bg-white/70 hover:bg-white'"
+            [attr.aria-pressed]="autoRotate()"
+            (click)="toggleAutoRotate()"
+          >
+            <app-icon name="motion" [size]="13" />
+            Auto-rotate
+          </button>
+        </div>
+      </div>
+    }
   `,
 })
 export class VillageWorld {
@@ -190,9 +224,16 @@ export class VillageWorld {
   });
 
   private readonly ready = signal(false);
+  /** At a building (desktop): offer 360° orbiting and auto-rotate. */
+  protected readonly orbitHint = computed(
+    () => this.ready() && this.state.entered() && this.active() !== 'plaza' && !this.compact(),
+  );
+  protected readonly autoRotate = signal(false);
   private readonly buildings = new Map<BuildingId, BuildingRuntime>();
   private readonly spirits = new Map<string, SpiritCompanion>();
+  private readonly entrances = new Map<BuildingId, { outside: Point; inside: Point } | null>();
   private avatar: Avatar | null = null;
+  private interiorLight: PointLight | null = null;
   private avatarAt: BuildingId = 'plaza';
   private disposed = false;
   private resizeObserver: ResizeObserver | null = null;
@@ -227,8 +268,10 @@ export class VillageWorld {
         const id = this.state.activeBuilding();
         const instant = this.state.reducedMotion();
         if (id === 'plaza') this.cameraService.overview(instant, 3.4);
-        else this.cameraService.focus(BUILDING_MAP[id], instant, 3.4);
+        else this.cameraService.focus(BUILDING_MAP[id], instant, 3.4, this.interiorView(id));
+        this.cameraService.setOrbitMode(id !== 'plaza');
         this.placeAvatar(id);
+        this.openOnly(id, instant, 2.8);
       });
     });
 
@@ -251,6 +294,11 @@ export class VillageWorld {
     effect(() => {
       const hidden = this.state.isMobile() && this.state.panelOpen();
       if (this.ready()) this.three.setPaused(hidden);
+    });
+
+    effect(() => {
+      const on = this.autoRotate();
+      if (this.ready()) this.cameraService.setAutoRotate(on);
     });
 
     // Hover from the 3D scene flows back to the shared state (highlights the nav item too).
@@ -291,6 +339,8 @@ export class VillageWorld {
       this.three.init(canvas, quality);
       this.three.resize(w, h);
       this.cameraService.init(canvas, w, h);
+      // Grabbing the view stops the slow auto-rotation.
+      this.cameraService.controls.addEventListener('start', () => this.autoRotate.set(false));
       canvas.addEventListener('webglcontextlost', this.onContextLost);
 
       const ctx: BuildContext = {
@@ -329,6 +379,12 @@ export class VillageWorld {
       addObject(ambient.root, ambient.update);
       this.burst = new SparkleBurst();
       scene.add(this.burst.root);
+
+      if (quality === 'high') {
+        // One shared warm light, moved into whichever building is open.
+        this.interiorLight = new PointLight('#ffc978', 0, 12, 1.6);
+        scene.add(this.interiorLight);
+      }
 
       state.progress.set(0.93);
       await nextFrame();
@@ -388,6 +444,7 @@ export class VillageWorld {
       const mesh = o as Mesh;
       const m = mesh.material as MeshStandardMaterial | undefined;
       if (!mesh.isMesh || !m?.isMeshStandardMaterial || m.emissive.getHex() !== 0) return;
+      if (inInterior(mesh)) return;
       let clone = clones.get(m.uuid);
       if (!clone) {
         clone = m.clone();
@@ -410,8 +467,20 @@ export class VillageWorld {
     ring.position.set(def.position[0], 0.09, def.position[1]);
     ring.visible = false;
 
+    const materials = [...clones.values()];
+    obj.reveal?.init(materials);
+    this.fillKitSlots(group);
+
     this.three.scene.add(group, ring);
-    this.buildings.set(def.id, { def, group, materials: [...clones.values()], ring, level: 0 });
+    this.buildings.set(def.id, {
+      def,
+      group,
+      materials,
+      ring,
+      level: 0,
+      reveal: obj.reveal,
+      open: { k: 0 },
+    });
 
     if (def.modelUrl) {
       this.assets
@@ -493,21 +562,39 @@ export class VillageWorld {
     const def = BUILDING_MAP[id];
     const immediate = instant || this.state.reducedMotion();
     if (id === 'plaza') this.cameraService.overview(immediate);
-    else this.cameraService.focus(def, immediate);
+    else this.cameraService.focus(def, immediate, 1.5, this.interiorView(id));
+    this.cameraService.setOrbitMode(id !== 'plaza');
+    this.autoRotate.set(false);
+    this.openOnly(id, immediate);
 
     if (!this.avatar || id === this.avatarAt) return;
     const from = this.avatarAt;
     this.avatarAt = id;
+    const exit = this.entrance(from);
+    const entry = this.entrance(id);
     const path = this.avatarPath(from, id);
+    // Step back out onto the doorstep first, and walk up to the door at the other end.
+    if (exit) path.unshift(exit.outside);
+    if (entry) path.push(entry.outside);
     const end = path.at(-1)!;
-    const yaw =
-      id === 'plaza' ? VIEW_AZIMUTH : Math.atan2(def.position[0] - end.x, def.position[1] - end.z);
+    const yaw = entry
+      ? Math.atan2(entry.inside.x - end.x, entry.inside.z - end.z)
+      : id === 'plaza'
+        ? VIEW_AZIMUTH
+        : Math.atan2(def.position[0] - end.x, def.position[1] - end.z);
+    if (this.avatar.inside) this.avatar.setInside(false, undefined, instant);
     if (instant) {
       this.avatar.root.position.set(end.x, 0, end.z);
       this.avatar.root.rotation.y = yaw;
+      if (entry) this.avatar.setInside(true, entry.inside, true);
     } else {
-      this.avatar.walkTo(path, yaw);
+      const avatar = this.avatar;
+      avatar.walkTo(path, yaw, entry ? () => avatar.setInside(true, entry.inside) : undefined);
     }
+  }
+
+  protected toggleAutoRotate(): void {
+    this.autoRotate.update((on) => !on);
   }
 
   /** Put the avatar at a building instantly (used after the intro flight). */
@@ -520,6 +607,90 @@ export class VillageWorld {
     this.avatar.root.position.set(end.x, 0, end.z);
     this.avatar.root.rotation.y =
       id === 'plaza' ? VIEW_AZIMUTH : Math.atan2(def.position[0] - end.x, def.position[1] - end.z);
+    const entry = this.entrance(id);
+    if (entry) this.avatar.setInside(true, entry.inside, true);
+  }
+
+  /** World-space doorstep and inside spot of a building the avatar can walk into. */
+  private entrance(id: BuildingId): { outside: Point; inside: Point } | null {
+    if (this.entrances.has(id)) return this.entrances.get(id)!;
+    const b = this.buildings.get(id);
+    const e = b?.reveal?.entrance;
+    let result: { outside: Point; inside: Point } | null = null;
+    if (b && e) {
+      b.group.updateMatrixWorld();
+      const toWorld = ([x, z]: readonly [number, number]): Point => {
+        const v = new Vector3(x, 0, z).applyMatrix4(b.group.matrixWorld);
+        return { x: v.x, z: v.z };
+      };
+      result = { outside: toWorld(e.outside), inside: toWorld(e.inside) };
+    }
+    this.entrances.set(id, result);
+    return result;
+  }
+
+  /** Swap furniture placeholders for the kit models (primitive stand-ins stay on failure). */
+  private fillKitSlots(root: Object3D): void {
+    const slots: Object3D[] = [];
+    root.traverse((o) => {
+      if (o.userData['kit']) slots.push(o);
+    });
+    for (const slot of slots) {
+      const { url, tint } = slot.userData['kit'] as KitSlot;
+      this.assets
+        .loadModel(url)
+        .then((model) => {
+          if (this.disposed) return;
+          prepareKitModel(model, tint);
+          slot.clear();
+          slot.add(model);
+        })
+        .catch((e) => console.warn(`[village] Could not load ${url}, keeping the stand-in.`, e));
+    }
+  }
+
+  private interiorView(id: BuildingId): InteriorView | undefined {
+    return this.buildings.get(id)?.reveal?.view;
+  }
+
+  /** Open `id` up (door, walls, roof → furniture) and close every other building. */
+  private openOnly(id: BuildingId, instant: boolean, delay = 0.8): void {
+    for (const b of this.buildings.values()) {
+      if (!b.reveal) continue;
+      const goal = b.def.id === id ? 1 : 0;
+      // Kill first: a tween still waiting out its delay would otherwise fire later.
+      b.openTween?.kill();
+      b.openTween = undefined;
+      if (b.open.k === goal) continue;
+      if (instant) {
+        b.open.k = goal;
+        this.applyOpen(b);
+        continue;
+      }
+      b.openTween = gsap.to(b.open, {
+        k: goal,
+        duration: goal ? 2 : 0.8,
+        delay: goal ? delay : 0,
+        ease: goal ? 'power1.inOut' : 'power2.in',
+        onUpdate: () => this.applyOpen(b),
+      });
+    }
+  }
+
+  private applyOpen(b: BuildingRuntime): void {
+    b.reveal!.set(b.open.k);
+    const light = this.interiorLight;
+    const spot = b.reveal!.light;
+    if (!light || !spot) return;
+    // The light follows the most-open building.
+    let best: BuildingRuntime | null = null;
+    for (const other of this.buildings.values())
+      if (other.reveal?.light && (!best || other.open.k > best.open.k)) best = other;
+    if (best !== b) return;
+    light.position.set(...spot);
+    b.group.localToWorld(light.position);
+    light.intensity =
+      Math.max(0, (b.open.k - 0.35) / 0.65) * (b.reveal!.lightIntensity ?? INTERIOR_LIGHT);
   }
 
   /** Walk around the fountain along the plaza ring, then out to the building. */
@@ -552,6 +723,8 @@ export class VillageWorld {
 
   private tick(dt: number, t: number): void {
     this.cameraService.update(dt);
+    const eye = this.cameraService.camera.position;
+    for (const b of this.buildings.values()) b.reveal?.face?.(eye, dt);
     this.interaction.update();
 
     // Hover / active highlight.
@@ -578,6 +751,9 @@ export class VillageWorld {
         .set(-1.4, 0, -0.5)
         .applyAxisAngle(new Vector3(0, 1, 0), yaw)
         .add(this.avatar.root.position);
+      // While the avatar is indoors, its companion waits on the doorstep.
+      const door = this.avatar.inside ? this.entrance(this.avatarAt)?.outside : null;
+      if (door) follow.set(door.x, 0, door.z);
       for (const s of this.spirits.values()) {
         const followsAvatar = s.data.home === 'avatar';
         if (followsAvatar) s.follow(follow);
@@ -612,6 +788,7 @@ export class VillageWorld {
       return true;
     }
     if (key === 'avatar-tag' && this.avatar) {
+      if (this.avatar.inside) return false;
       out.copy(this.avatar.root.position);
       return true;
     }
@@ -637,7 +814,10 @@ export class VillageWorld {
     const buildingLabels: { el: HTMLElement; x: number; y: number; z: number }[] = [];
     container.querySelectorAll<HTMLElement>('[data-anchor]').forEach((el) => {
       const key = el.dataset['anchor']!;
-      if (!this.anchorPosition(key, v)) return;
+      if (!this.anchorPosition(key, v)) {
+        el.style.opacity = '0';
+        return;
+      }
       v.project(camera);
       const isBuilding = key.startsWith('building:');
       const limit = isBuilding ? 1.8 : 1.2;
@@ -717,6 +897,7 @@ export class VillageWorld {
 
   private dispose(): void {
     this.disposed = true;
+    this.buildings.forEach((b) => b.openTween?.kill());
     this.resizeObserver?.disconnect();
     this.canvas().nativeElement.removeEventListener('webglcontextlost', this.onContextLost);
     this.avatar?.dispose();
