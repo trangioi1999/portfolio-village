@@ -2,6 +2,7 @@ import { CanvasTexture, RepeatWrapping, SRGBColorSpace, Texture } from 'three';
 import { BUILDINGS } from '../../data/buildings.data';
 import { FARM, GROUND_EXTENT, PATHS, PLAZA_RADIUS, POND, STREAM_END } from '../layout';
 import { Rng } from './random';
+import { assetUrl } from '../../embed-runtime';
 
 function canvas(w: number, h: number) {
   const c = document.createElement('canvas');
@@ -452,12 +453,15 @@ export function techBoardTexture(icons: string[]): Texture {
   const texture = finish(c, 4);
   icons.forEach((name, i) => {
     const img = new Image();
+    // Icons may come from another origin (an embedding host's proxy or a
+    // local dev server); CORS keeps the canvas usable as a WebGL texture.
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       const [x, y] = tiles[i];
       ctx.drawImage(img, x + 25, y + 25, tile - 50, tile - 50);
       texture.needsUpdate = true;
     };
-    img.src = `icons/tech/${name}.svg`;
+    img.src = assetUrl(`icons/tech/${name}.svg`);
   });
   return texture;
 }

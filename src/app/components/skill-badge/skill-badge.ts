@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { assetUrl } from '../../embed-runtime';
 import { Skill } from '../../models/skill.model';
 
 /** Skill tile with logo (or a monogram when no logo is available). */
@@ -13,7 +14,7 @@ import { Skill } from '../../models/skill.model';
       <span class="grid size-9 shrink-0 place-items-center rounded-xl" [style.background]="tint()">
         @if (skill().icon && !failed()) {
           <img
-            [src]="'icons/tech/' + skill().icon + '.svg'"
+            [src]="iconUrl()"
             alt=""
             width="22"
             height="22"
@@ -35,6 +36,7 @@ export class SkillBadge {
   readonly skill = input.required<Skill>();
   readonly color = input('#5fa447');
   protected readonly failed = signal(false);
+  protected readonly iconUrl = computed(() => assetUrl(`icons/tech/${this.skill().icon}.svg`));
   protected readonly tint = computed(() => `${this.color()}1f`);
   protected readonly monogram = computed(() =>
     this.skill()

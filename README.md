@@ -19,6 +19,31 @@ npm run lint       # ESLint
 Deploy `dist/portfolio-village/browser` to any static host. Configure an SPA fallback
 (all unknown paths → `index.html`) so deep links like `/projects?project=stma` work.
 
+## Embedding in another site
+
+`npm run build` also publishes `dist/portfolio-village/browser/embed/mount.js`:
+an ES module that boots the village as its own Angular application inside an
+element of a host page (embed contract v1, used by
+[TG Labs](https://github.com/trangioi1999/tg-labs-mfe) at `/apps/village`).
+
+```ts
+const { mount } = await import('https://<deployment>/embed/mount.js');
+const village = await mount(element, {
+  basePath: '/apps/village', // router base on the host
+  assetBase: 'https://<deployment>/', // icons/ and models/
+  theme: { mode: 'light', accent: '…' }, // ignored: the village keeps its look
+});
+village.unmount();
+```
+
+The host loads the module from this deployment (TG Labs proxies it on its own
+domain), so a deploy here updates both places, and the host never has to match
+this app's Angular version. Embedded, `embed/village.css` is scoped to
+`.village-root` and viewport units become container units
+(`scripts/scope-css.mjs`), fixed overlays stay inside the host element, and
+view-mode classes go on the root element instead of `<html>`.
+`npm run build:embed` rebuilds only the module (after `ng build`).
+
 ## Village map
 
 | Building         | Route         | Section            |
