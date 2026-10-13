@@ -5,6 +5,7 @@ import { COMPANIONS, LEARNING, PROFILE } from '../data/portfolio.data';
 import { PROJECTS } from '../data/projects.data';
 import { SKILL_GROUPS, TECH_ICONS } from '../data/skills.data';
 import { BuildingId } from '../models/building.model';
+import { assetUrl } from '../embed-runtime';
 
 /** Single access point for portfolio content — keeps data separate from rendering. */
 @Injectable({ providedIn: 'root' })
@@ -27,7 +28,7 @@ export class PortfolioDataService {
 
   techIcon(name: string): string | null {
     const icon = TECH_ICONS[name];
-    return icon ? `icons/tech/${icon}.svg` : null;
+    return icon ? assetUrl(`icons/tech/${icon}.svg`) : null;
   }
 
   /** "2023-06" → "Jun 2023"; `null` → "Present". */

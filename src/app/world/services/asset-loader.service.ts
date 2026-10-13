@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { AnimationClip, Group, Mesh, Texture, TextureLoader } from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { assetUrl } from '../../embed-runtime';
 
 /**
  * Loads and caches GLTF/GLB models and textures. Buildings declare an optional
@@ -18,7 +19,7 @@ export class AssetLoaderService {
   async loadModel(url: string): Promise<Group> {
     let pending = this.models.get(url);
     if (!pending) {
-      pending = this.gltf.loadAsync(url).then((gltf) => {
+      pending = this.gltf.loadAsync(assetUrl(url)).then((gltf) => {
         gltf.scene.traverse((o) => {
           const mesh = o as Mesh;
           if (mesh.isMesh) {
@@ -35,7 +36,7 @@ export class AssetLoaderService {
 
   /** Load a GLB with its animation clips (skinned meshes are cloned safely). */
   async loadGltf(url: string): Promise<{ scene: Group; animations: AnimationClip[] }> {
-    const gltf = await this.gltf.loadAsync(url);
+    const gltf = await this.gltf.loadAsync(assetUrl(url));
     gltf.scene.traverse((o) => {
       const mesh = o as Mesh;
       if (mesh.isMesh) {
@@ -49,7 +50,7 @@ export class AssetLoaderService {
   loadTexture(url: string): Promise<Texture> {
     let pending = this.textureCache.get(url);
     if (!pending) {
-      pending = this.textures.loadAsync(url);
+      pending = this.textures.loadAsync(assetUrl(url));
       this.textureCache.set(url, pending);
     }
     return pending;

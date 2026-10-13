@@ -4,10 +4,12 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "ng build && node scripts/build-embed.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "build:embed": "node scripts/build-embed.mjs",
+    "test:scripts": "node --test scripts/*.test.mjs"
   },
   "private": true,
   "packageManager": "npm@11.16.0",

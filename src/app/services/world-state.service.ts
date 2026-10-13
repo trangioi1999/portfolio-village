@@ -3,6 +3,7 @@ import { NavigationEnd, Router } from '@angular/router';
 import { Subject, filter } from 'rxjs';
 import { BUILDING_MAP } from '../data/buildings.data';
 import { BuildingId } from '../models/building.model';
+import { classRoot } from '../embed-runtime';
 
 export type WorldStatus = 'loading' | 'ready' | 'unsupported' | 'error';
 export type ViewMode = 'world' | 'classic';
@@ -179,7 +180,7 @@ export class WorldStateService {
     });
 
     effect(() => {
-      const root = document.documentElement;
+      const root = classRoot();
       root.classList.toggle('reduce-motion', this.reducedMotion());
       root.classList.toggle('classic-view', this.viewMode() === 'classic');
     });
